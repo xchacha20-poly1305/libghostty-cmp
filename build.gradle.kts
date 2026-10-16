@@ -1,10 +1,10 @@
 plugins {
-    id("com.android.library") version "9.3.1" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
-    id("com.vanniktech.maven.publish") version "0.37.0" apply false
+    alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.maven.publish) apply false
 }
 
-val kotlinVersion = providers.gradleProperty("KOTLIN_VERSION").get()
+val kotlinVersion = libs.versions.kotlin.get()
 
 allprojects {
     tasks.withType<AbstractArchiveTask>().configureEach {
@@ -12,7 +12,7 @@ allprojects {
         isReproducibleFileOrder = true
     }
 
-    // AGP 9.3.1 resolves its built-in Kotlin from these two configurations at 2.2.10; raising them
+    // AGP 9.4.1 resolves its built-in Kotlin from these two configurations at 2.2.10; raising them
     // requires kotlin.compiler.runViaBuildToolsApi, which lifts the plugin/compiler version check.
     configurations.matching { it.name in setOf("kotlinCompilerClasspath", "kotlinBuildToolsApiClasspath") }
         .configureEach {
@@ -40,7 +40,7 @@ subprojects {
             explicitApi()
         }
         dependencies {
-            add("api", "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
+            add("api", libs.kotlin.stdlib)
         }
     }
 }

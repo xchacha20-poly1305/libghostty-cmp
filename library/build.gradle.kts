@@ -1,12 +1,12 @@
 plugins {
-    id("com.android.library")
-    id("com.vanniktech.maven.publish")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.maven.publish)
 }
 
 android {
-    namespace = "io.github.sagernet.libghostty"
+    namespace = "io.github.xchacha20_poly1305.libghostty"
 
-    ndkVersion = "28.2.13676358"
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -29,10 +29,10 @@ android {
 }
 
 dependencies {
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    api(libs.kotlinx.coroutines.core)
 
-    androidTestImplementation("androidx.test:runner:1.7.0")
-    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
 
 apply<GhosttyNativePlugin>()

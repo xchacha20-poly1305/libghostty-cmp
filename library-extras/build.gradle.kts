@@ -1,10 +1,10 @@
 plugins {
-    id("com.android.library")
-    id("com.vanniktech.maven.publish")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.maven.publish)
 }
 
 android {
-    namespace = "io.github.sagernet.libghostty.extras"
+    namespace = "io.github.xchacha20_poly1305.libghostty.extras"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -20,8 +20,8 @@ android {
 dependencies {
     api(project(":library"))
 
-    androidTestImplementation("androidx.test:runner:1.7.0")
-    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
 
 apply<GhosttyAssetsPlugin>()

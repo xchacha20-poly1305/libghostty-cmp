@@ -1,5 +1,5 @@
 name: Set up the build
-description: Installs Java, zig and Gradle, and restores the libghostty-vt cache.
+description: Installs Java, the NDK, zig and Gradle, and restores the libghostty-vt cache.
 
 inputs:
   zig-version:
@@ -9,10 +9,19 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-java@v5
+    - uses: actions/setup-java@v6
       with:
         distribution: temurin
         java-version: 17
+    - name: Install the NDK
+      shell: bash
+      run: |
+        ndk=$(sed -n -E 's/^ndk = "([^"]+)".*/\1/p' gradle/libs.versions.toml)
+        if [ -z "$ndk" ]; then
+          echo "ndk version not found in gradle/libs.versions.toml" >&2
+          exit 1
+        fi
+        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk"
     - name: Check zig against ghostty
       shell: bash
       env:
@@ -47,4 +56,4 @@ runs:
         path: build/ghostty/zig-cache
         key: ghostty-vt-${{ inputs.zig-version }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch') }}
         restore-keys: ghostty-vt-${{ inputs.zig-version }}-
-    - uses: gradle/actions/setup-gradle@v5
+    - uses: gradle/actions/setup-gradle@v6
