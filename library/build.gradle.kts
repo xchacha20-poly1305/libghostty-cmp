@@ -1,41 +1,70 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.maven.publish)
 }
 
-android {
-    namespace = "io.github.xchacha20_poly1305.libghostty"
+apply<GhosttyNativePlugin>()
 
-    ndkVersion = libs.versions.ndk.get()
-
-    defaultConfig {
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+val ghosttyAndroidJni = tasks.named<GhosttyJniTask>("ghosttyAndroidJni") {
+    // Only the sysroot is used: zig links the JNI library against bionic.
+    ndkHome.set(
+        androidComponents.sdkComponents.sdkDirectory.map {
+            it.dir("ndk/${libs.versions.ndk.get()}").asFile.absolutePath
         }
-        externalNativeBuild {
-            cmake {
-                arguments += "-DGHOSTTY_VT_DIR=${layout.buildDirectory.dir("ghostty-vt").get().asFile.absolutePath}"
+    )
+}
+val ghosttyDesktopJni = tasks.named<GhosttyJniTask>("ghosttyDesktopJni")
+val ghosttyGenKotlin = tasks.named<GhosttyGenKotlinTask>("ghosttyGenKotlin")
+
+kotlin {
+    android {
+        namespace = "io.github.xchacha20_poly1305.libghostty"
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
             }
         }
+        withDeviceTestBuilder {
+            sourceSetTreeName = "test"
+        }.configure {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
     }
+    jvm("desktop")
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
+    sourceSets {
+        commonMain {
+            kotlin.srcDir(ghosttyGenKotlin.flatMap { it.outputDir })
+            dependencies {
+                api(libs.kotlinx.coroutines.core)
+            }
+        }
+        androidMain.dependencies {
+            implementation(libs.kotlinx.coroutines.android)
+        }
+        named("desktopMain") {
+            resources.srcDir(ghosttyDesktopJni.flatMap { it.outputDir })
+            dependencies {
+                implementation(libs.kotlinx.coroutines.swing)
+            }
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+        named("androidDeviceTest").dependencies {
+            implementation(libs.androidx.test.runner)
+            implementation(libs.androidx.test.ext.junit)
         }
     }
 }
 
-dependencies {
-    api(libs.kotlinx.coroutines.core)
-
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
+androidComponents {
+    onVariants { variant ->
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(ghosttyAndroidJni, GhosttyJniTask::outputDir)
+    }
 }
-
-apply<GhosttyNativePlugin>()
 
 mavenPublishing {
     publishToMavenCentral()

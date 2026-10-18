@@ -12,7 +12,9 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "libghostty-android"
+rootProject.name = "libghostty-cmp"
 include(":library")
 include(":library-extras")
 include(":library-compose")
+include(":demo-desktop")
+include(":demo-android")

@@ -30,11 +30,13 @@ jobs:
         with:
           zig-version: ${{ env.ZIG_VERSION }}
       - name: Build
-        run: ./gradlew assembleRelease
+        run: ./gradlew assemble
       - uses: actions/upload-artifact@v7
         with:
-          name: library-release
-          path: library*/build/outputs/aar/*-release.aar
+          name: libraries
+          path: |
+            library*/build/outputs/aar/*.aar
+            library*/build/libs/*.jar
       - name: Publish snapshot to Maven Central
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -50,7 +52,25 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: 0CDBE971
 
-  test:
+  desktop-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: ./.github/actions/setup
+        with:
+          zig-version: ${{ env.ZIG_VERSION }}
+          ndk: "false"
+      - name: Run the desktop tests
+        shell: bash
+        run: ./gradlew :library:desktopTest :library-extras:desktopTest
+
+  android-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -92,13 +112,14 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
           disable-animations: true
-          script: ./gradlew :library:connectedDebugAndroidTest :library-extras:connectedDebugAndroidTest
+          script: ./gradlew :library:connectedAndroidDeviceTest :library-extras:connectedAndroidDeviceTest
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - build
-      - test
+      - desktop-test
+      - android-test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -133,7 +154,8 @@ jobs:
             *-*) prerelease=(--prerelease) ;;
           esac
           gh release create "$GITHUB_REF_NAME" \
-            library*/build/outputs/aar/*-release.aar \
+            library*/build/outputs/aar/*.aar \
+            library*/build/libs/*-desktop.jar \
             --title "$GITHUB_REF_NAME" \
             --notes "ghostty commit: $(git ls-files -s ghostty | awk '{print $2}')" \
             "${prerelease[@]}"

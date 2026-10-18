@@ -1,10 +1,13 @@
 name: Set up the build
-description: Installs Java, the NDK, zig and Gradle, and restores the libghostty-vt cache.
+description: Installs Java, the NDK, zig and Gradle, and restores the zig caches.
 
 inputs:
   zig-version:
     description: zig release to install
     required: true
+  ndk:
+    description: Whether to install the NDK, which only Android builds need
+    default: "true"
 
 runs:
   using: composite
@@ -14,6 +17,7 @@ runs:
         distribution: temurin
         java-version: 17
     - name: Install the NDK
+      if: inputs.ndk == 'true'
       shell: bash
       run: |
         ndk=$(sed -n -E 's/^ndk = "([^"]+)".*/\1/p' gradle/libs.versions.toml)
@@ -50,10 +54,12 @@ runs:
       shell: bash
       run: |
         echo "commit=$(git ls-files -s ghostty | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-    - name: Cache libghostty-vt objects
+    - name: Cache zig objects and packages
       uses: actions/cache@v6
       with:
-        path: build/ghostty/zig-cache
-        key: ghostty-vt-${{ inputs.zig-version }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch') }}
-        restore-keys: ghostty-vt-${{ inputs.zig-version }}-
+        path: |
+          build/ghostty/zig-cache
+          native/zig-pkg
+        key: ghostty-jni-${{ runner.os }}-${{ inputs.zig-version }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch', 'native/**/*.zig', 'native/build.zig.zon') }}
+        restore-keys: ghostty-jni-${{ runner.os }}-${{ inputs.zig-version }}-
     - uses: gradle/actions/setup-gradle@v6

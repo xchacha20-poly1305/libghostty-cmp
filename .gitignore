@@ -6,3 +6,6 @@
 build/
 .cxx
 /.claude/
+/native/.zig-cache/
+/native/zig-out/
+/native/zig-pkg/

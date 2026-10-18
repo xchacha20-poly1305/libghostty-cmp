@@ -1,30 +1,40 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.maven.publish)
 }
 
-android {
-    namespace = "io.github.xchacha20_poly1305.libghostty.extras"
+apply<GhosttyAssetsPlugin>()
 
-    defaultConfig {
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+val ghosttyAssets = the<GhosttyAssets>()
+
+kotlin {
+    android {
+        namespace = "io.github.xchacha20_poly1305.libghostty.extras"
+        withDeviceTestBuilder {
+            sourceSetTreeName = "test"
+        }.configure {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
     }
+    jvm("desktop")
 
     sourceSets {
-        getByName("main") {
-            assets.directories.add(layout.buildDirectory.dir("ghostty-assets").get().asFile.absolutePath)
+        commonMain {
+            resources.srcDir(ghosttyAssets.resourceDir)
+            dependencies {
+                api(project(":library"))
+            }
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+        named("androidDeviceTest").dependencies {
+            implementation(libs.androidx.test.runner)
+            implementation(libs.androidx.test.ext.junit)
         }
     }
 }
-
-dependencies {
-    api(project(":library"))
-
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-}
-
-apply<GhosttyAssetsPlugin>()
 
 mavenPublishing {
     publishToMavenCentral()

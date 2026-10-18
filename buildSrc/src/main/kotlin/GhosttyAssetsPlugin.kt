@@ -7,6 +7,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.ArchiveOperations
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RelativePath
 import org.gradle.api.provider.Property
@@ -177,27 +178,39 @@ abstract class GhosttyTerminfoTask @Inject constructor(
     }
 }
 
+/**
+ * Registers `ghosttyThemes` and `ghosttyTerminfo`, which write the theme catalog and the compiled terminfo entry
+ * as resources under `build/ghostty-resources`; [GhosttyAssets.resourceDir] is that directory, built by both tasks.
+ */
 class GhosttyAssetsPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val env = GhosttyEnv(project)
-        val ghosttyAssetsDir = project.layout.buildDirectory.dir("ghostty-assets")
+        val root = project.layout.buildDirectory.dir("ghostty-resources")
+        val packageDir = root.map { it.dir(GhosttyAssets.PACKAGE_PATH) }
 
         val ghosttyThemes = project.tasks.register<GhosttyThemesTask>("ghosttyThemes") {
             dependsOn(env.source)
             commit.set(env.commit)
             sourceDir.set(env.sourceDir)
-            themesDir.set(ghosttyAssetsDir.map { it.dir("ghostty-themes") })
+            themesDir.set(packageDir.map { it.dir("themes") })
         }
 
         val ghosttyTerminfo = project.tasks.register<GhosttyTerminfoTask>("ghosttyTerminfo") {
             dependsOn(env.source)
             commit.set(env.commit)
             sourceDir.set(env.sourceDir)
-            terminfoDir.set(ghosttyAssetsDir.map { it.dir("ghostty-terminfo") })
+            terminfoDir.set(packageDir.map { it.dir("terminfo") })
         }
 
-        project.tasks.named("preBuild") {
-            dependsOn(ghosttyThemes, ghosttyTerminfo)
-        }
+        project.extensions.add(
+            "ghosttyAssets",
+            GhosttyAssets(project.files(root).builtBy(ghosttyThemes, ghosttyTerminfo)),
+        )
+    }
+}
+
+class GhosttyAssets(val resourceDir: FileCollection) {
+    companion object {
+        const val PACKAGE_PATH = "io/github/xchacha20_poly1305/libghostty/extras"
     }
 }

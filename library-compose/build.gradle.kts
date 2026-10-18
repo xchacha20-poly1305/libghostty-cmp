@@ -1,28 +1,35 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.maven.publish)
 }
 
-android {
-    namespace = "io.github.xchacha20_poly1305.libghostty.compose"
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "io.github.xchacha20_poly1305.libghostty.compose"
         minSdk = 23
+        androidResources {
+            enable = true
+        }
     }
+    jvm("desktop")
 
-    buildFeatures {
-        compose = true
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":library"))
+            api(libs.compose.runtime)
+            api(libs.compose.ui)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.components.resources)
+        }
     }
 }
 
-dependencies {
-    api(project(":library"))
-
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.material3)
+compose.resources {
+    packageOfResClass = "io.github.xchacha20_poly1305.libghostty.compose.resources"
 }
 
 mavenPublishing {
