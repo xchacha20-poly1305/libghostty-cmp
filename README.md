@@ -26,9 +26,29 @@ GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
 GhosttyDialogs(state)
 ```
 
-`demo-desktop` runs your shell through pty4j: `./gradlew :demo-desktop:run`.
+## Desktop demo
 
-Every push to main publishes the `-SNAPSHOT` version to
+Download a demo uber jar from [GitHub Releases](https://github.com/xchacha20-poly1305/libghostty-cmp/releases).
+Choose the jar matching your operating system and CPU architecture (for example, `linux-x64`,
+`macos-arm64`, or `windows-x64` in the filename). Each release includes builds for the three CI runner platforms.
+
+Install Java 17 or newer with desktop support, then run the downloaded jar from a terminal:
+
+```sh
+java -jar demo-desktop-linux-x64-<version>.jar
+```
+
+Replace the filename with the jar you downloaded. The jar includes the application dependencies and
+native libraries; Java must be installed separately. It opens a terminal window running your `$SHELL`,
+falling back to `/bin/sh` on Linux/macOS or `cmd.exe` on Windows.
+
+To run from source:
+
+```sh
+./gradlew :demo-desktop:run
+```
+
+Every push to `cmp` publishes the `-SNAPSHOT` version to
 `https://central.sonatype.com/repository/maven-snapshots/`.
 
 ## License
