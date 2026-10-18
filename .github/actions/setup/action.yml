@@ -25,7 +25,8 @@ runs:
           echo "ndk version not found in gradle/libs.versions.toml" >&2
           exit 1
         fi
-        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk"
+        # sdkmanager may stop reading before yes finishes; only its exit status matters.
+        "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" < <(yes 2>/dev/null)
     - uses: mlugg/setup-zig@v2
       with:
         version: ${{ inputs.zig-version }}
