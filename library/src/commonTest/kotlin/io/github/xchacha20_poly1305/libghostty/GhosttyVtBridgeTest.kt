@@ -77,6 +77,20 @@ class GhosttyVtBridgeTest {
     }
 
     @Test
+    fun fullResetClearsTitleAndPwdAndRaisesEvents() {
+        write("\u001b]2;hello\u0007\u001b]7;file://host/tmp/dir\u0007")
+        GhosttyVt.nativeTakeEventFlags(handle)
+
+        write("\u001bc")
+
+        val flags = GhosttyVt.nativeTakeEventFlags(handle)
+        assertEquals(GhosttyVt.EVENT_TITLE, flags and GhosttyVt.EVENT_TITLE)
+        assertEquals(GhosttyVt.EVENT_PWD, flags and GhosttyVt.EVENT_PWD)
+        assertNull(GhosttyVt.nativeGetTitle(handle))
+        assertNull(GhosttyVt.nativeGetPwd(handle))
+    }
+
+    @Test
     fun clipboardWriteIsTakenOnce() {
         val payload = Base64.getEncoder().encodeToString("copied".toByteArray())
         write("\u001b]52;c;$payload\u001b\\")

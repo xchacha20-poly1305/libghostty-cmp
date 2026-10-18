@@ -316,7 +316,10 @@ const natives = struct {
                 if (rgbFromArgb(entry)) |rgb| slot.* = rgb;
             }
         }
-        colors.palette.changeDefault(table);
+        colors.palette.changeDefault(s.alloc, table) catch {
+            std.log.warn("setting theme palette failed: out of memory", .{});
+            colors.palette.resetDefault(s.alloc);
+        };
         s.terminal.flags.dirty.palette = true;
 
         s.background = s.effectiveBackground();

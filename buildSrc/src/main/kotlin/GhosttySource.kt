@@ -6,7 +6,6 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
@@ -21,7 +20,7 @@ abstract class GhosttySourceTask @Inject constructor(
     private val execOperations: ExecOperations,
 ) : DefaultTask() {
     @get:Internal
-    abstract val repositories: ListProperty<String>
+    abstract val repository: Property<String>
 
     @get:Input
     abstract val commit: Property<String>
@@ -79,19 +78,7 @@ abstract class GhosttySourceTask @Inject constructor(
     }
 
     private fun fetch(source: File) {
-        val repositories = repositories.get()
-        for ((index, repository) in repositories.withIndex()) {
-            val last = index == repositories.lastIndex
-            val result = execOperations.exec {
-                workingDir = source
-                commandLine("git", "fetch", "--depth", "1", repository, commit.get())
-                if (!last) {
-                    errorOutput = ByteArrayOutputStream()
-                    isIgnoreExitValue = true
-                }
-            }
-            if (result.exitValue == 0) return
-        }
+        git(source, "fetch", "--depth", "1", repository.get(), commit.get())
     }
 
     private fun git(dir: File, vararg args: String) {
@@ -102,15 +89,10 @@ abstract class GhosttySourceTask @Inject constructor(
     }
 }
 
-const val GHOSTTY_SUBMODULE = "ghostty"
-
-fun ghosttyCommit(project: Project): String {
-    val entry = project.providers.exec {
-        workingDir = project.rootDir
-        commandLine("git", "ls-files", "-s", GHOSTTY_SUBMODULE)
-    }.standardOutput.asText.get().trim()
-    return entry.split(Regex("\\s+")).getOrNull(1)
-        ?: throw GradleException("$GHOSTTY_SUBMODULE is not registered as a submodule")
+fun ghosttyCommit(project: Project): String = project.providers.gradleProperty("GHOSTTY_COMMIT").get().also {
+    if (!it.matches(Regex("[0-9a-f]{40}"))) {
+        throw GradleException("GHOSTTY_COMMIT must be a full 40-character Git commit hash")
+    }
 }
 
 internal class GhosttyEnv(project: Project) {
@@ -127,12 +109,7 @@ internal class GhosttyEnv(project: Project) {
             tasks.named("ghosttySource")
         } else {
             tasks.register<GhosttySourceTask>("ghosttySource") {
-                repositories.set(
-                    listOf(
-                        project.rootProject.file(GHOSTTY_SUBMODULE).absolutePath,
-                        "https://github.com/ghostty-org/ghostty.git",
-                    )
-                )
+                repository.set("https://github.com/ghostty-org/ghostty.git")
                 commit.set(this@GhosttyEnv.commit)
                 patches.from(this@GhosttyEnv.patches)
                 sourceDir.set(this@GhosttyEnv.sourceDir)

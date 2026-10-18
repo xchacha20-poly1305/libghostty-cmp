@@ -24,8 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: true
       - uses: ./.github/actions/setup
         with:
           zig-version: ${{ env.ZIG_VERSION }}
@@ -60,8 +58,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: true
       - uses: ./.github/actions/setup
         with:
           zig-version: ${{ env.ZIG_VERSION }}
@@ -74,8 +70,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: true
       - uses: ./.github/actions/setup
         with:
           zig-version: ${{ env.ZIG_VERSION }}
@@ -127,8 +121,6 @@ jobs:
       VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: true
       - name: Check the tag
         run: |
           if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || [[ "$VERSION" == *-SNAPSHOT ]]; then
@@ -157,7 +149,7 @@ jobs:
             library*/build/outputs/aar/*.aar \
             library*/build/libs/*-desktop.jar \
             --title "$GITHUB_REF_NAME" \
-            --notes "ghostty commit: $(git ls-files -s ghostty | awk '{print $2}')" \
+            --notes "ghostty commit: $(sed -n 's/^GHOSTTY_COMMIT=//p' gradle.properties)" \
             "${prerelease[@]}"
         env:
           GH_TOKEN: ${{ github.token }}

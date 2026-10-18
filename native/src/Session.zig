@@ -141,6 +141,11 @@ pub fn create(alloc: std.mem.Allocator, owner: jni.Object, opts: Options) !*Sess
         .title_changed = &titleChanged,
         .pwd_changed = &pwdChanged,
         .progress_report = &progressReport,
+        .program_status = null,
+        .semantic_prompt = null,
+        .reset = &reset,
+        .resize_window = null,
+        .render_hold = null,
         .clipboard_write = &clipboardWrite,
         .clipboard_read = &clipboardRead,
         .xtversion = &xtversionReport,
@@ -244,6 +249,11 @@ fn bell(handler: *Handler) void {
 
 fn titleChanged(handler: *Handler) void {
     fromHandler(handler).pending_events |= Event.title;
+}
+
+fn reset(handler: *Handler) void {
+    // RIS clears these values without calling their individual effects.
+    fromHandler(handler).pending_events |= Event.title | Event.pwd;
 }
 
 fn pwdChanged(handler: *Handler) void {

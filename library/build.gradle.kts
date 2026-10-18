@@ -2,9 +2,8 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.maven.publish)
+    id("ghostty.native")
 }
-
-apply<GhosttyNativePlugin>()
 
 val ghosttyAndroidJni = tasks.named<GhosttyJniTask>("ghosttyAndroidJni") {
     // Only the sysroot is used: zig links the JNI library against bionic.
@@ -20,6 +19,7 @@ val ghosttyGenKotlin = tasks.named<GhosttyGenKotlinTask>("ghosttyGenKotlin")
 kotlin {
     android {
         namespace = "io.github.xchacha20_poly1305.libghostty"
+        @Suppress("UnstableApiUsage")
         optimization {
             consumerKeepRules.apply {
                 publish = true

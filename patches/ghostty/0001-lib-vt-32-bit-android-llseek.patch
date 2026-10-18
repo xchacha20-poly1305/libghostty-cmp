@@ -1,8 +1,7 @@
-diff --git a/src/lib/TinyIo.zig b/src/lib/TinyIo.zig
-index f892780..9c1ef93 100644
---- a/src/lib/TinyIo.zig
-+++ b/src/lib/TinyIo.zig
-@@ -439,9 +439,17 @@ fn operate(
+diff --git a/src/lib/tinyio/posix.zig b/src/lib/tinyio/posix.zig
+--- a/src/lib/tinyio/posix.zig
++++ b/src/lib/tinyio/posix.zig
+@@ -257,9 +257,17 @@
      }
  }
  
@@ -10,7 +9,7 @@ index f892780..9c1ef93 100644
 +// same as `std.Io.Threaded`.
 +const use_llseek = builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4;
 +
- fn fileSeekBy(_: ?*anyopaque, file: File, offset: i64) File.SeekError!void {
+ pub fn fileSeekBy(_: ?*anyopaque, file: File, offset: i64) File.SeekError!void {
      while (true) {
 -        const rc = lseek_sym(file.handle, offset, posix.SEEK.CUR);
 +        var llseek_result: u64 = undefined;
@@ -21,9 +20,9 @@ index f892780..9c1ef93 100644
          switch (posix.errno(rc)) {
              .SUCCESS => return,
              .INTR => continue,
-@@ -456,7 +464,11 @@ fn fileSeekBy(_: ?*anyopaque, file: File, offset: i64) File.SeekError!void {
+@@ -274,7 +282,11 @@
  
- fn fileSeekTo(_: ?*anyopaque, file: File, offset: u64) File.SeekError!void {
+ pub fn fileSeekTo(_: ?*anyopaque, file: File, offset: u64) File.SeekError!void {
      while (true) {
 -        const rc = lseek_sym(file.handle, @bitCast(offset), posix.SEEK.SET);
 +        var llseek_result: u64 = undefined;
