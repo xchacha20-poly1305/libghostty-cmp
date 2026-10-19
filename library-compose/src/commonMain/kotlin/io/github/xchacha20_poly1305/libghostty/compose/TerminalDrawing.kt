@@ -311,8 +311,7 @@ internal object JumpToBottomChip {
 }
 
 private fun DrawScope.drawJumpToBottomChip(controller: TerminalController) {
-    val scrollbar = controller.render.scrollbar
-    if (scrollbar.total <= 0 || scrollbar.isAtBottom) return
+    if (!controller.isJumpToBottomVisible) return
     val radius = JumpToBottomChip.radius.toPx()
     val center = Offset(size.width - JumpToBottomChip.centerInset.toPx(), size.height - JumpToBottomChip.centerInset.toPx())
     drawCircle(JUMP_CHIP_BACKGROUND, radius, center)

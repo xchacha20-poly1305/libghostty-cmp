@@ -567,6 +567,12 @@ internal class TerminalController(
 
     // Scrolling and mouse
 
+    val isJumpToBottomVisible: Boolean
+        get() {
+            val scrollbar = render.scrollbar
+            return state.showJumpToBottom && scrollbar.total > 0 && !scrollbar.isAtBottom
+        }
+
     val isMouseTracking: Boolean
         get() = session?.withTerminal { it.isMouseTracking } ?: false
 

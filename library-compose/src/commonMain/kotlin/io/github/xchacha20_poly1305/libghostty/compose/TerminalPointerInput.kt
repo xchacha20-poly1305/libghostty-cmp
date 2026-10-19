@@ -245,8 +245,7 @@ private fun tap(controller: TerminalController, focusRequester: FocusRequester, 
 }
 
 private fun hitsJumpChip(controller: TerminalController, position: Offset): Boolean {
-    val scrollbar = controller.render.scrollbar
-    if (scrollbar.total <= 0 || scrollbar.isAtBottom) return false
+    if (!controller.isJumpToBottomVisible) return false
     val coordinates = controller.layoutCoordinates ?: return false
     val density = controller.density
     val inset = JumpToBottomChip.centerInset.value * density

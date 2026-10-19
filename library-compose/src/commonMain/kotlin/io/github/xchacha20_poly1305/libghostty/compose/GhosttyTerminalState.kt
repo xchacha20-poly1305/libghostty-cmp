@@ -24,6 +24,9 @@ public class GhosttyTerminalState {
     /** Shows the software keyboard when the terminal is tapped. */
     public var showImeOnTap: Boolean by mutableStateOf(true)
 
+    /** Shows a button that scrolls back to the bottom while the viewport is in the scrollback. */
+    public var showJumpToBottom: Boolean by mutableStateOf(true)
+
     /**
      * Makes the input method treat the terminal as a text field without suggestions, instead of a raw key target.
      * Some Samsung keyboards keep composing state across raw key targets (termux/termux-app#686).
