@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import io.github.xchacha20_poly1305.libghostty.GhosttyMods
 import io.github.xchacha20_poly1305.libghostty.GhosttyMouseAction
 import io.github.xchacha20_poly1305.libghostty.GhosttyMouseButton
@@ -189,43 +190,57 @@ private suspend fun AwaitPointerEventScope.touchGesture(
 ): Float {
     if (controller.selectionActive && dragSelectionHandle(controller, down)) return 0f
 
+    // The tracker sees every move from the down on, so a quick flick that barely passes the slop still has samples.
+    val tracker = VelocityTracker()
+    tracker.addPointerInputChange(down)
     val start = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-        awaitTouchStart(controller, down, viewConfiguration.touchSlop)
-    } ?: TouchStart.LONG_PRESS
+        awaitTouchStart(controller, down, tracker, viewConfiguration.touchSlop)
+    } ?: TouchStart.LongPress
     return when (start) {
-        TouchStart.TAP -> {
+        TouchStart.Tap -> {
             tap(controller, focusRequester, down)
             0f
         }
 
-        TouchStart.SCROLL -> scroll(controller, down)
+        is TouchStart.Scroll -> scroll(controller, down, start.slopCrossing, tracker)
 
-        TouchStart.LONG_PRESS -> {
+        TouchStart.LongPress -> {
             longPress(controller, down)
             0f
         }
 
-        TouchStart.PINCH -> 0f
+        TouchStart.Pinch -> 0f
     }
 }
 
 /** How a touch gesture turned out once the finger moved, lifted, or held still for the long press timeout. */
-private enum class TouchStart { TAP, SCROLL, LONG_PRESS, PINCH }
+private sealed interface TouchStart {
+    data object Tap : TouchStart
+
+    /** The finger moved past the touch slop; [slopCrossing] is the move that took it there. */
+    class Scroll(val slopCrossing: PointerInputChange) : TouchStart
+
+    data object LongPress : TouchStart
+
+    data object Pinch : TouchStart
+}
 
 private suspend fun AwaitPointerEventScope.awaitTouchStart(
     controller: TerminalController,
     down: PointerInputChange,
+    tracker: VelocityTracker,
     slop: Float,
 ): TouchStart {
     while (true) {
         val event = awaitPointerEvent()
         if (event.changes.count { it.pressed } > 1) {
             pinch(controller, event)
-            return TouchStart.PINCH
+            return TouchStart.Pinch
         }
-        val change = event.changes.firstOrNull { it.id == down.id } ?: return TouchStart.PINCH
-        if (change.changedToUp()) return TouchStart.TAP
-        if ((change.position - down.position).getDistance() > slop) return TouchStart.SCROLL
+        val change = event.changes.firstOrNull { it.id == down.id } ?: return TouchStart.Pinch
+        if (change.changedToUp()) return TouchStart.Tap
+        tracker.addPointerInputChange(change)
+        if ((change.position - down.position).getDistance() > slop) return TouchStart.Scroll(change)
     }
 }
 
@@ -253,28 +268,41 @@ private fun hitsJumpChip(controller: TerminalController, position: Offset): Bool
     return (position - center).getDistance() <= JumpToBottomChip.radius.value * density * JumpToBottomChip.TAP_SLOP_SCALE
 }
 
-/** Scrolls with the finger; returns the release velocity. */
-private suspend fun AwaitPointerEventScope.scroll(controller: TerminalController, down: PointerInputChange): Float {
-    val tracker = VelocityTracker()
-    tracker.addPosition(down.uptimeMillis, down.position)
+/**
+ * Scrolls with the finger from [slopCrossing] on; returns the release velocity. The distance covered within the slop
+ * scrolls too, so the content keeps up with the finger from the start of the gesture.
+ */
+private suspend fun AwaitPointerEventScope.scroll(
+    controller: TerminalController,
+    down: PointerInputChange,
+    slopCrossing: PointerInputChange,
+    tracker: VelocityTracker,
+): Float {
     val cellHeight = controller.glyphs?.cellHeight?.toFloat() ?: return 0f
     val anchor = controller.cellAt(down.position)
     var accumulated = 0f
+    var lastY = down.position.y
+    var change = slopCrossing
     while (true) {
+        change.consume()
+        accumulated += lastY - change.position.y
+        lastY = change.position.y
+        val rows = (accumulated / cellHeight).toInt()
+        if (rows != 0) {
+            accumulated -= rows * cellHeight
+            controller.scrollContent(rows, anchor)
+        }
+
         val event = awaitPointerEvent()
         if (event.changes.count { it.pressed } > 1) {
             pinch(controller, event)
             return 0f
         }
-        val change = event.changes.firstOrNull { it.id == down.id } ?: return 0f
-        change.consume()
-        tracker.addPosition(change.uptimeMillis, change.position)
-        if (!change.pressed) return -tracker.calculateVelocity().y
-        accumulated -= change.positionChange().y
-        val rows = (accumulated / cellHeight).toInt()
-        if (rows != 0) {
-            accumulated -= rows * cellHeight
-            controller.scrollContent(rows, anchor)
+        change = event.changes.firstOrNull { it.id == down.id } ?: return 0f
+        tracker.addPointerInputChange(change)
+        if (!change.pressed) {
+            change.consume()
+            return -tracker.calculateVelocity().y
         }
     }
 }
