@@ -50,7 +50,12 @@ internal class TerminalController(
     var session: GhosttyTerminalSession? = null
         private set
 
-    val render = GhosttyRenderState()
+    /**
+     * The rows read from [session]. A render state only reads the rows its terminal marks dirty, so each attached
+     * session gets a new one; a reused state would keep the previous session's rows.
+     */
+    var render = GhosttyRenderState()
+        private set
 
     /** Changes whenever there is something new to draw. */
     var frame by mutableIntStateOf(0)
@@ -106,6 +111,7 @@ internal class TerminalController(
         session?.detach(this)
         kittyImages.clear()
         composingText = null
+        render = GhosttyRenderState()
         session = newSession
         newSession?.attach(this)
         if (newSession != null && newSession.clipboard == null) newSession.clipboard = clipboard
