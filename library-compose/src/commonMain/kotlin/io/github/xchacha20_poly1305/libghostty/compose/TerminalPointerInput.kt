@@ -261,11 +261,8 @@ private fun tap(controller: TerminalController, focusRequester: FocusRequester, 
 
 private fun hitsJumpChip(controller: TerminalController, position: Offset): Boolean {
     if (!controller.isJumpToBottomVisible) return false
-    val coordinates = controller.layoutCoordinates ?: return false
-    val density = controller.density
-    val inset = JumpToBottomChip.centerInset.value * density
-    val center = Offset(coordinates.size.width - inset, coordinates.size.height - inset)
-    return (position - center).getDistance() <= JumpToBottomChip.radius.value * density * JumpToBottomChip.TAP_SLOP_SCALE
+    val distance = (position - controller.jumpToBottomChipCenter).getDistance()
+    return distance <= JumpToBottomChip.radius.value * controller.density * JumpToBottomChip.TAP_SLOP_SCALE
 }
 
 /**

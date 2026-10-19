@@ -72,6 +72,11 @@ public class GhosttyTerminalState {
         controller?.paste()
     }
 
+    /** Scrolls to the bottom of the scrollback, past the bottom content padding, and follows new output again. */
+    public fun scrollToBottom() {
+        controller?.scrollToBottom()
+    }
+
     /** Gives the terminal input focus and shows the software keyboard. */
     public fun showKeyboard() {
         focusTerminal()

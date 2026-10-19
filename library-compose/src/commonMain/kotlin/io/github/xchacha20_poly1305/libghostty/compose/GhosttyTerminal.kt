@@ -4,6 +4,7 @@ import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.material3.DropdownMenu
@@ -26,6 +27,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -34,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession
 import io.github.xchacha20_poly1305.libghostty.GhosttyTheme
@@ -48,7 +51,12 @@ import org.jetbrains.compose.resources.stringResource
  * Shows [session] and sends it what the user types. Pair it with [GhosttyDialogs] for the prompts the terminal
  * raises, and optionally a [GhosttyExtraKeysBar] sharing the same [state].
  *
- * [fontSize] applies whenever it changes; pinch zoom moves away from it and reports through [onFontSizeChanged].
+ * @param fontSize applies whenever it changes; pinch zoom moves away from it and reports through [onFontSizeChanged].
+ *
+ * @param contentPadding works like a lazy list's: the grid still fills the view, so rows show behind whatever covers the
+ * padding, and only the ends of the scrollback keep clear of it. At rest the last row with content sits above the
+ * bottom padding, and at the top of the scrollback the first row sits below the top padding. Horizontal padding
+ * narrows the grid.
  */
 @Composable
 public fun GhosttyTerminal(
@@ -60,6 +68,7 @@ public fun GhosttyTerminal(
     fontFamily: FontFamily = FontFamily.Monospace,
     fontSize: TextUnit = 14.sp,
     focusOnAttach: Boolean = true,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     onFontSizeChanged: (TextUnit) -> Unit = {},
     onFinishedSessionKey: () -> Unit = {},
 ) {
@@ -110,6 +119,20 @@ public fun GhosttyTerminal(
         if (session != null) {
             theme?.let(session::setTheme)
             session.setColorScheme(darkColorScheme)
+        }
+    }
+
+    val layoutDirection = LocalLayoutDirection.current
+    LaunchedEffect(contentPadding, density, layoutDirection) {
+        with(density) {
+            controller.setContentPadding(
+                TerminalController.PaddingPx(
+                    left = contentPadding.calculateLeftPadding(layoutDirection).toPx(),
+                    top = contentPadding.calculateTopPadding().toPx(),
+                    right = contentPadding.calculateRightPadding(layoutDirection).toPx(),
+                    bottom = contentPadding.calculateBottomPadding().toPx(),
+                ),
+            )
         }
     }
 

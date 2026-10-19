@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -28,8 +29,9 @@ internal object SelectionHandles {
     fun anchors(controller: TerminalController): Pair<Offset, Offset>? {
         val glyphs = controller.glyphs ?: return null
         val (first, last) = controller.selectionBounds() ?: return null
-        return Offset(first.column * glyphs.cellWidth, (first.row + 1f) * glyphs.cellHeight) to
-            Offset((last.column + 1) * glyphs.cellWidth, (last.row + 1f) * glyphs.cellHeight)
+        val origin = controller.gridOrigin
+        return origin + Offset(first.column * glyphs.cellWidth, (first.row + 1f) * glyphs.cellHeight) to
+            origin + Offset((last.column + 1) * glyphs.cellWidth, (last.row + 1f) * glyphs.cellHeight)
     }
 }
 
@@ -42,14 +44,17 @@ internal fun DrawScope.drawTerminal(controller: TerminalController, handleColor:
 
     val cellWidth = glyphs.cellWidth
     val cellHeight = glyphs.cellHeight.toFloat()
-    clipRect(right = render.columns * cellWidth, bottom = render.rows * cellHeight) {
-        drawBackgrounds(render, cellWidth, cellHeight)
-        drawKittyImages(controller, cellWidth, cellHeight, belowText = true)
-        drawText(render, glyphs, cellWidth, cellHeight)
-        drawKittyImages(controller, cellWidth, cellHeight, belowText = false)
-        if (controller.cursorBlinkOn || !render.cursorBlinking) drawCursor(render, glyphs, cellWidth, cellHeight)
-        drawComposingText(controller, glyphs, cellWidth, cellHeight)
-        drawPasswordIndicator(render, cellWidth, cellHeight)
+    val origin = controller.gridOrigin
+    translate(origin.x, origin.y) {
+        clipRect(right = render.columns * cellWidth, bottom = render.rows * cellHeight) {
+            drawBackgrounds(render, cellWidth, cellHeight)
+            drawKittyImages(controller, cellWidth, cellHeight, belowText = true)
+            drawText(render, glyphs, cellWidth, cellHeight)
+            drawKittyImages(controller, cellWidth, cellHeight, belowText = false)
+            if (controller.cursorBlinkOn || !render.cursorBlinking) drawCursor(render, glyphs, cellWidth, cellHeight)
+            drawComposingText(controller, glyphs, cellWidth, cellHeight)
+            drawPasswordIndicator(render, cellWidth, cellHeight)
+        }
     }
     if (showHandles && controller.selectionActive) drawSelectionHandles(controller, handleColor)
     drawScrollIndicator(controller)
@@ -291,14 +296,15 @@ private fun DrawScope.drawScrollIndicator(controller: TerminalController) {
     val scrollbar = controller.render.scrollbar
     val alpha = controller.scrollbarAlpha.value
     if (scrollbar.total <= scrollbar.length || alpha <= 0f) return
+    val track = controller.contentBounds
     val barWidth = 3.dp.toPx()
-    val right = size.width - 2.dp.toPx()
-    val top = size.height * scrollbar.offset / scrollbar.total
-    val thumbHeight = max(16.dp.toPx(), size.height * scrollbar.length / scrollbar.total)
+    val right = track.right - 2.dp.toPx()
+    val top = track.top + track.height * scrollbar.offset / scrollbar.total
+    val thumbHeight = max(16.dp.toPx(), track.height * scrollbar.length / scrollbar.total)
     drawRoundRect(
         SCROLLBAR_COLOR.copy(alpha = SCROLLBAR_COLOR.alpha * alpha),
         Offset(right - barWidth, top),
-        Size(barWidth, min(thumbHeight, size.height - top)),
+        Size(barWidth, min(thumbHeight, track.bottom - top)),
         CornerRadius(barWidth / 2),
     )
 }
@@ -313,7 +319,7 @@ internal object JumpToBottomChip {
 private fun DrawScope.drawJumpToBottomChip(controller: TerminalController) {
     if (!controller.isJumpToBottomVisible) return
     val radius = JumpToBottomChip.radius.toPx()
-    val center = Offset(size.width - JumpToBottomChip.centerInset.toPx(), size.height - JumpToBottomChip.centerInset.toPx())
+    val center = controller.jumpToBottomChipCenter
     drawCircle(JUMP_CHIP_BACKGROUND, radius, center)
     val span = radius * 0.45f
     val arrow = Path().apply {

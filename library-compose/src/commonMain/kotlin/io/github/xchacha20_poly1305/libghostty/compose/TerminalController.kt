@@ -23,7 +23,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeMark
@@ -72,6 +74,25 @@ internal class TerminalController(
     private var widthPx = 0
     private var heightPx = 0
 
+    /** The content padding in pixels; see [GhosttyTerminal]'s `contentPadding`. */
+    private var padding = PaddingPx.Zero
+
+    /**
+     * How far the grid is shifted down from the top of the view: into the top padding at the top of the scrollback,
+     * or up (negative) at the bottom, so the last row with content clears the bottom padding.
+     */
+    private var overscroll by mutableFloatStateOf(0f)
+
+    /** Whether the bottom of the scrollback is shown at rest, so new output stays in sight. */
+    private var followsBottom = true
+
+    /** The last row with content the last time the viewport was at the bottom, or -1. */
+    private var lastContentRow = -1
+
+    /** Where the grid's top left corner is drawn in the view. */
+    val gridOrigin: Offset
+        get() = Offset(padding.left, overscroll)
+
     var layoutCoordinates: LayoutCoordinates? = null
     var density = 1f
 
@@ -112,6 +133,9 @@ internal class TerminalController(
         kittyImages.clear()
         composingText = null
         render = GhosttyRenderState()
+        overscroll = 0f
+        followsBottom = true
+        lastContentRow = -1
         session = newSession
         newSession?.attach(this)
         if (newSession != null && newSession.clipboard == null) newSession.clipboard = clipboard
@@ -132,14 +156,23 @@ internal class TerminalController(
         relayout()
     }
 
+    fun setContentPadding(value: PaddingPx) {
+        if (value == padding) return
+        padding = value
+        relayout()
+        requestFrame()
+    }
+
     val cellSize: GhosttyCellSize?
         get() = glyphs?.let { GhosttyCellSize(it.cellWidth, it.cellHeight) }
 
+    /** The grid spans the whole height, since rows scroll under the vertical padding, but only the padded width. */
     private fun relayout(force: Boolean = false) {
         val session = session ?: return
         val size = cellSize ?: return
-        if (widthPx <= 0 || heightPx <= 0) return
-        val newColumns = size.columnsFor(widthPx)
+        val gridWidthPx = widthPx - (padding.left + padding.right).roundToInt()
+        if (gridWidthPx <= 0 || heightPx <= 0) return
+        val newColumns = size.columnsFor(gridWidthPx)
         val newRows = size.rowsFor(heightPx)
         if (!force && newColumns == columns && newRows == rows) return
         columns = newColumns
@@ -185,7 +218,12 @@ internal class TerminalController(
             if (deferForSyncOutput(terminal)) {
                 return@withTerminal FrameResult.DEFERRED
             }
-            if (!render.update(terminal, session.selectionBackground, session.selectionForeground)) {
+            val changed = render.update(terminal, session.selectionBackground, session.selectionForeground)
+            if (changed && render.scrollbar.isAtBottom) {
+                lastContentRow = findLastContentRow()
+            }
+            settleOverscroll(render.scrollbar)
+            if (!changed) {
                 return@withTerminal FrameResult.UNCHANGED
             }
             kittyImages.update(terminal, render)
@@ -264,9 +302,8 @@ internal class TerminalController(
             return
         }
         if (selectionActive) clearSelection()
-        if (!render.scrollbar.isAtBottom) {
-            session.withTerminal { it.scrollToBottom() }
-            requestFrame()
+        if (!render.scrollbar.isAtBottom || !followsBottom) {
+            scrollToBottom()
         }
         holdBlinkSolid()
         if (typed) session.sendTypedInput(bytes) else session.sendRawInput(bytes)
@@ -372,7 +409,7 @@ internal class TerminalController(
         val coordinates = layoutCoordinates?.takeIf { it.isAttached } ?: return null
         if (render.cursorColumn < 0 || render.cursorRow < 0) return null
         val topLeft = Offset(render.cursorColumn * glyphs.cellWidth, render.cursorRow * glyphs.cellHeight.toFloat())
-        val local = Rect(topLeft, Size(glyphs.cellWidth, glyphs.cellHeight.toFloat()))
+        val local = Rect(topLeft, Size(glyphs.cellWidth, glyphs.cellHeight.toFloat())).translate(gridOrigin)
         return Rect(coordinates.localToRoot(local.topLeft), coordinates.localToRoot(local.bottomRight))
     }
 
@@ -427,25 +464,21 @@ internal class TerminalController(
 
     /**
      * Extends the selection from the anchor cell to the cell under [position]. Dragging onto the first or last row
-     * scrolls the viewport, and the anchor with it.
+     * clear of the padding scrolls, and the anchor with it.
      */
     fun dragSelection(anchor: Cell, position: Offset, biasRows: Int = 0): Cell {
         val column = columnAt(position.x)
         val row = (rowAt(position.y) - biasRows).fastCoerceIn(0, rows - 1)
         var anchorRow = anchor.row
         session?.withTerminal { terminal ->
-            val edge = when (row) {
-                0 -> -1
-                rows - 1 -> 1
+            val edge = when {
+                row <= rowAt(padding.top) -> -1
+                row >= rowAt(heightPx - padding.bottom - 1) -> 1
                 else -> 0
             }
             if (edge != 0) {
-                val before = terminal.scrollbar.offset
-                terminal.scroll(edge)
-                if (terminal.scrollbar.offset != before) {
-                    anchorRow = (anchorRow - edge).fastCoerceIn(0, rows - 1)
-                    showScrollbar()
-                }
+                val moved = scrollScrollback(terminal, edge)
+                anchorRow = (anchorRow - moved).fastCoerceIn(0, rows - 1)
             }
             selectionActive = terminal.select(anchor.column, anchorRow, column, row)
         }
@@ -483,7 +516,7 @@ internal class TerminalController(
         val glyphs = glyphs ?: return
         val coordinates = layoutCoordinates ?: return
         val bounds = selectionBounds()
-        val local = if (bounds != null) {
+        val inGrid = if (bounds != null) {
             val (first, last) = bounds
             val singleRow = first.row == last.row
             Rect(
@@ -496,7 +529,7 @@ internal class TerminalController(
                 right = if (singleRow) {
                     (last.column + 1) * glyphs.cellWidth
                 } else {
-                    widthPx.toFloat()
+                    gridWidth
                 },
                 bottom = (last.row + 1) * glyphs.cellHeight.toFloat(),
             )
@@ -508,6 +541,7 @@ internal class TerminalController(
                 bottom = (at.row + 1) * glyphs.cellHeight.toFloat(),
             )
         }
+        val local = inGrid.translate(gridOrigin)
         textToolbar.showMenu(
             rect = Rect(coordinates.localToRoot(local.topLeft), coordinates.localToRoot(local.bottomRight)),
             onCopyRequested = if (selectionActive) {
@@ -609,24 +643,100 @@ internal class TerminalController(
                     }
                 }
 
-                else -> {
-                    terminal.scroll(deltaRows)
-                    showScrollbar()
-                    requestFrame()
-                }
+                else -> scrollScrollback(terminal, deltaRows)
             }
         }
     }
 
     private fun scrollViewport(deltaRows: Int) {
-        session?.withTerminal { it.scroll(deltaRows) }
+        session?.withTerminal { scrollScrollback(it, deltaRows) }
+    }
+
+    /**
+     * Scrolls through the scrollback by [deltaRows], a row at a time: at either end of the scrollback the grid moves
+     * into the padding, and coming back it leaves the padding before the viewport moves. Returns how many rows the
+     * viewport itself moved.
+     */
+    private fun scrollScrollback(terminal: GhosttyTerminal, deltaRows: Int): Int {
+        val offsetBefore = terminal.scrollbar.offset
+        for (step in 0 until abs(deltaRows)) {
+            val moved = if (deltaRows > 0) scrollRowDown(terminal) else scrollRowUp(terminal)
+            if (!moved) break
+        }
+        val scrollbar = terminal.scrollbar
+        followsBottom = scrollbar.isAtBottom && overscroll <= overscrollRange(scrollbar).start
         showScrollbar()
         requestFrame()
+        return (scrollbar.offset - offsetBefore).toInt()
+    }
+
+    /** Moves the content a row up, toward the bottom of the scrollback; returns false at the end. */
+    private fun scrollRowDown(terminal: GhosttyTerminal): Boolean {
+        val cellHeight = glyphs?.cellHeight?.toFloat() ?: return false
+        val scrollbar = terminal.scrollbar
+        val range = overscrollRange(scrollbar)
+        val topPaddingEnd = max(0f, range.start)
+        when {
+            overscroll > topPaddingEnd -> overscroll = max(overscroll - cellHeight, topPaddingEnd)
+            !scrollbar.isAtBottom -> terminal.scroll(1)
+            overscroll > range.start -> overscroll = max(overscroll - cellHeight, range.start)
+            else -> return false
+        }
+        return true
+    }
+
+    /** Moves the content a row down, toward the top of the scrollback; returns false at the end. */
+    private fun scrollRowUp(terminal: GhosttyTerminal): Boolean {
+        val cellHeight = glyphs?.cellHeight?.toFloat() ?: return false
+        val scrollbar = terminal.scrollbar
+        val range = overscrollRange(scrollbar)
+        when {
+            overscroll < 0f -> overscroll = min(overscroll + cellHeight, 0f)
+            scrollbar.offset > 0 -> terminal.scroll(-1)
+            overscroll < range.endInclusive -> overscroll = min(overscroll + cellHeight, range.endInclusive)
+            else -> return false
+        }
+        return true
     }
 
     fun scrollToBottom() {
         session?.withTerminal { it.scrollToBottom() }
+        followsBottom = true
         requestFrame()
+    }
+
+    /**
+     * How far [overscroll] may go: down into the top padding at the top of the scrollback, and at the bottom up until
+     * the last row with content clears the bottom padding. When both ends are shown at once, the bottom wins.
+     */
+    private fun overscrollRange(scrollbar: GhosttyScrollbar): ClosedFloatingPointRange<Float> {
+        val cellHeight = glyphs?.cellHeight ?: return 0f..0f
+        val top = if (scrollbar.offset == 0L) padding.top else 0f
+        val bottom = if (scrollbar.isAtBottom) {
+            min(top, heightPx - padding.bottom - (lastContentRow + 1) * cellHeight)
+        } else {
+            0f
+        }
+        return bottom..top
+    }
+
+    /** Keeps [overscroll] in its range after the content, the size or the padding changed. */
+    private fun settleOverscroll(scrollbar: GhosttyScrollbar) {
+        val range = overscrollRange(scrollbar)
+        overscroll = if (followsBottom && scrollbar.isAtBottom) range.start else overscroll.coerceIn(range)
+    }
+
+    /** The last row of [render] with text, a background, or the visible cursor; -1 when there is none. */
+    private fun findLastContentRow(): Int {
+        val cursorRow = if (render.cursorVisible) render.cursorRow else -1
+        for (row in render.rows - 1 downTo cursorRow + 1) {
+            for (column in 0 until render.columns) {
+                if (render.textLength(column, row) > 0 || render.background(column, row) != render.defaultBackground) {
+                    return row
+                }
+            }
+        }
+        return cursorRow
     }
 
     private fun showScrollbar() {
@@ -640,20 +750,40 @@ internal class TerminalController(
 
     // Geometry
 
-    fun columnAt(x: Float): Int = ((x / (glyphs?.cellWidth ?: 1f)).toInt()).fastCoerceIn(0, max(columns - 1, 0))
+    /** The column under [x] in view coordinates. */
+    fun columnAt(x: Float): Int =
+        floor((x - gridOrigin.x) / (glyphs?.cellWidth ?: 1f)).toInt().fastCoerceIn(0, max(columns - 1, 0))
 
-    fun rowAt(y: Float): Int = ((y / (glyphs?.cellHeight ?: 1)).toInt()).fastCoerceIn(0, max(rows - 1, 0))
+    /** The row under [y] in view coordinates. */
+    fun rowAt(y: Float): Int =
+        floor((y - gridOrigin.y) / (glyphs?.cellHeight ?: 1)).toInt().fastCoerceIn(0, max(rows - 1, 0))
 
     fun cellAt(position: Offset): Cell = Cell(columnAt(position.x), rowAt(position.y))
 
     val gridWidth: Float
         get() = ceil(columns * (glyphs?.cellWidth ?: 0f))
 
+    /** The part of the view the padding leaves to the content, in view coordinates. */
+    val contentBounds: Rect
+        get() = Rect(padding.left, padding.top, widthPx - padding.right, heightPx - padding.bottom)
+
+    val jumpToBottomChipCenter: Offset
+        get() {
+            val inset = JumpToBottomChip.centerInset.value * density
+            return Offset(contentBounds.right - inset, contentBounds.bottom - inset)
+        }
+
     fun changeFontSize(steps: Int) {
         state.fontSizeSteps(steps)
     }
 
     data class Cell(val column: Int, val row: Int)
+
+    data class PaddingPx(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+        companion object {
+            val Zero = PaddingPx(0f, 0f, 0f, 0f)
+        }
+    }
 
     private companion object {
         val BLINK_INTERVAL = 600.milliseconds
