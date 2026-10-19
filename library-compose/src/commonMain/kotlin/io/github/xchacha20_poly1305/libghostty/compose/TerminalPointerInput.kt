@@ -31,6 +31,10 @@ internal fun Modifier.terminalPointerInput(
                 if (event.type != PointerEventType.Press) continue
                 val down = event.changes.firstOrNull { it.pressed && !it.previousPressed } ?: continue
                 fling?.cancel()
+                if (hitsJumpChip(controller, down.position)) {
+                    jumpChipPress(controller, down)
+                    continue
+                }
                 if (down.type == PointerType.Mouse) {
                     val previous = lastClick
                     val doubleClick = previous != null &&
@@ -147,7 +151,24 @@ private suspend fun AwaitPointerEventScope.mouseGesture(
                 dragged = true
                 anchor = controller.dragSelection(anchor, change.position)
             }
-            if (!dragged && controller.selectionActive) controller.clearSelection()
+            if (!dragged && controller.selectionActive) {
+                controller.clearSelection()
+            }
+        }
+    }
+}
+
+/** A mouse or touch press on the jump-to-bottom chip; releasing it over the chip scrolls to the bottom. */
+private suspend fun AwaitPointerEventScope.jumpChipPress(controller: TerminalController, down: PointerInputChange) {
+    down.consume()
+    while (true) {
+        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return
+        change.consume()
+        if (!change.pressed) {
+            if (hitsJumpChip(controller, change.position)) {
+                controller.scrollToBottom()
+            }
+            return
         }
     }
 }
@@ -210,10 +231,6 @@ private suspend fun AwaitPointerEventScope.awaitTouchStart(
 
 private fun tap(controller: TerminalController, focusRequester: FocusRequester, down: PointerInputChange) {
     down.consume()
-    if (hitsJumpChip(controller, down.position)) {
-        controller.scrollToBottom()
-        return
-    }
     if (controller.selectionActive) {
         controller.clearSelection()
         return
