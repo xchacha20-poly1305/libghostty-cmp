@@ -45,8 +45,9 @@ private data class TerminalInputElement(
 }
 
 /**
- * Keeps an input method session open while the terminal is focused. The input method sees an always empty editor:
- * committed text goes straight to the terminal, and composing text is only drawn.
+ * Keeps an input method session open from the first keyboard request until the terminal loses focus. Focus alone
+ * starts no session, because starting one always shows the software keyboard. The input method sees an always empty
+ * editor: committed text goes straight to the terminal, and composing text is only drawn.
  */
 private class TerminalInputNode(
     var controller: TerminalController,
@@ -86,16 +87,21 @@ private class TerminalInputNode(
     override fun onFocusEvent(focusState: FocusState) {
         if (focused == focusState.isFocused) return
         focused = focusState.isFocused
-        if (focused) startInput() else stopInput()
+        if (!focused) {
+            keyboardPending = false
+            stopInput()
+        } else if (keyboardPending) {
+            keyboardPending = false
+            startInput()
+        }
     }
 
+    // Focus moving off a screen that is being popped dispatches a hide, which cancels a show issued in the same
+    // frame; showing once the input session is established avoids racing it.
     private fun startInput() {
         session = coroutineScope.launch {
             establishTextInputSession {
-                if (keyboardPending) {
-                    keyboardPending = false
-                    showKeyboardNow()
-                }
+                showKeyboardNow()
                 startInputMethod(TerminalInputRequest())
             }
         }
@@ -110,10 +116,12 @@ private class TerminalInputNode(
     private val view: View
         get() = currentValueOf(LocalView)
 
-    // Focus moving off a screen that is being popped dispatches a hide, which cancels a show issued in the same
-    // frame; showing once the input session is established avoids racing it.
     private fun showKeyboard() {
-        if (session == null) keyboardPending = true else showKeyboardNow()
+        when {
+            session != null -> showKeyboardNow()
+            focused -> startInput()
+            else -> keyboardPending = true
+        }
     }
 
     private fun showKeyboardNow() {
