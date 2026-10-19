@@ -166,8 +166,8 @@ class GhosttyNativePlugin : Plugin<Project> {
             val resourceDir = "io/github/xchacha20_poly1305/libghostty/native"
             targets.set(
                 mapOf(
-                    "linux-x86_64" to "x86_64-linux-gnu.2.28",
-                    "linux-aarch64" to "aarch64-linux-gnu.2.28",
+                    "linux-x86_64" to "x86_64-linux-gnu.2.17",
+                    "linux-aarch64" to "aarch64-linux-gnu.2.17",
                     "macos-x86_64" to "x86_64-macos.11.0",
                     "macos-aarch64" to "aarch64-macos.11.0",
                     "windows-x86_64" to "x86_64-windows-gnu",
