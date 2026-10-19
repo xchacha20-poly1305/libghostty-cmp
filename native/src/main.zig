@@ -61,6 +61,24 @@ export fn JNI_OnLoad(vm: *jni.JavaVm, _: ?*anyopaque) jni.Int {
     return jni.version_1_6;
 }
 
+/// Zig's DLL entry point skips the MinGW CRT, so on Windows run the C++ static constructors
+/// (simdutf's implementation dispatch) that the ELF and Mach-O loaders run themselves.
+pub const DllMain = if (builtin.os.tag == .windows) struct {
+    const windows = std.os.windows;
+    extern const __CTOR_LIST__: [1]usize;
+
+    fn dllMain(_: windows.HINSTANCE, reason: windows.DWORD, _: windows.LPVOID) callconv(.winapi) windows.BOOL {
+        if (reason == 1) { // DLL_PROCESS_ATTACH
+            // A -1 (or count) header, the constructors, then 0; run in reverse like MinGW does.
+            const list: [*]const usize = &__CTOR_LIST__;
+            var n: usize = 0;
+            while (list[n + 1] != 0) n += 1;
+            while (n > 0) : (n -= 1) @as(*const fn () callconv(.c) void, @ptrFromInt(list[n]))();
+        }
+        return .TRUE;
+    }
+}.dllMain else {};
+
 fn decodePng(a: std.mem.Allocator, data: []const u8) vt.sys.DecodeError!vt.sys.Image {
     const image = wuffs.png.decode(a, data) catch |err| return switch (err) {
         error.OutOfMemory => error.OutOfMemory,
