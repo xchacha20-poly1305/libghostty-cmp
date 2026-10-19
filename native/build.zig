@@ -18,16 +18,21 @@ pub fn build(b: *std.Build) !void {
     }
     b.installArtifact(lib);
 
-    // The Kotlin mirrors of ghostty's input types, generated on the host.
+    // The Kotlin mirrors of ghostty's input types, generated on the host. Ghostty defaults a
+    // Windows host to the MSVC ABI, whose SIMD C++ does not build; use GNU like the desktop JNI.
+    const host = if (b.graph.host.result.os.tag == .windows)
+        b.resolveTargetQuery(.{ .abi = .gnu })
+    else
+        b.graph.host;
     const gen = b.addExecutable(.{
         .name = "gen-kotlin",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/gen_kotlin.zig"),
-            .target = b.graph.host,
+            .target = host,
             .optimize = .Debug,
         }),
     });
-    gen.root_module.addImport("ghostty-vt", ghosttyDependency(b, b.graph.host, .Debug).module("ghostty-vt"));
+    gen.root_module.addImport("ghostty-vt", ghosttyDependency(b, host, .Debug).module("ghostty-vt"));
     const run_gen = b.addRunArtifact(gen);
     const kotlin_dir = run_gen.addOutputDirectoryArg("kotlin");
     const gen_step = b.step("gen-kotlin", "Generate the Kotlin mirrors of ghostty's input types");
@@ -62,9 +67,14 @@ fn bridgeModule(
         .link_libc = true,
         .strip = optimize != .Debug,
     });
-    mod.addImport("ghostty-vt", ghostty.module("ghostty-vt"));
-    // The same PNG decoder Ghostty uses; libghostty-vt leaves it unset.
-    if (ghostty.builder.lazyDependency("wuffs", .{
+    const vt = ghostty.module("ghostty-vt");
+    mod.addImport("ghostty-vt", vt);
+    // The same PNG decoder Ghostty uses. Reuse the instance ghostty-vt imports for Kitty graphics:
+    // ghostty adjusts the target (e.g. on a macOS host), and a second instance built for ours
+    // would put the same files in two modules.
+    if (vt.import_table.get("wuffs")) |wuffs| {
+        mod.addImport("wuffs", wuffs);
+    } else if (ghostty.builder.lazyDependency("wuffs", .{
         .target = target,
         .optimize = optimize,
     })) |wuffs| mod.addImport("wuffs", wuffs.module("wuffs"));
