@@ -5,16 +5,9 @@ plugins {
     id("ghostty.native")
 }
 
-val ghosttyAndroidJni = tasks.named<GhosttyJniTask>("ghosttyAndroidJni") {
-    // Only the sysroot is used: zig links the JNI library against bionic.
-    ndkHome.set(
-        androidComponents.sdkComponents.sdkDirectory.map {
-            it.dir("ndk/${libs.versions.ndk.get()}").asFile.absolutePath
-        }
-    )
-}
-val ghosttyDesktopJni = tasks.named<GhosttyJniTask>("ghosttyDesktopJni")
-val ghosttyGenKotlin = tasks.named<GhosttyGenKotlinTask>("ghosttyGenKotlin")
+val ghosttyNative = the<GhosttyNative>()
+// Only the sysroot is used: zig links the JNI library against bionic.
+ghosttyNative.ndkHome.set(androidComponents.sdkComponents.sdkDirectory.map { it.dir("ndk/${libs.versions.ndk.get()}") })
 
 kotlin {
     android {
@@ -36,7 +29,7 @@ kotlin {
 
     sourceSets {
         commonMain {
-            kotlin.srcDir(ghosttyGenKotlin.flatMap { it.outputDir })
+            kotlin.srcDir(ghosttyNative.kotlin.flatMap { it.outputDir })
             dependencies {
                 api(libs.kotlinx.coroutines.core)
             }
@@ -45,7 +38,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
         }
         named("desktopMain") {
-            resources.srcDir(ghosttyDesktopJni.flatMap { it.outputDir })
+            resources.srcDir(ghosttyNative.desktopJni.flatMap { it.outputDir })
             dependencies {
                 implementation(libs.kotlinx.coroutines.swing)
             }
@@ -62,7 +55,7 @@ kotlin {
 
 androidComponents {
     onVariants { variant ->
-        variant.sources.jniLibs?.addGeneratedSourceDirectory(ghosttyAndroidJni, GhosttyJniTask::outputDir)
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(ghosttyNative.androidJni, GhosttyOutputTask::outputDir)
     }
 }
 

@@ -20,13 +20,84 @@ env:
   ZIG_VERSION: 0.16.0
 
 jobs:
-  build:
+  # Builds everything that needs zig, tic or the NDK once; the other jobs build against its export.
+  native:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
-          zig-version: ${{ env.ZIG_VERSION }}
+          prebuilt: "false"
+      - name: Install the NDK
+        run: |
+          ndk=$(sed -n -E 's/^ndk = "([^"]+)".*/\1/p' gradle/libs.versions.toml)
+          if [ -z "$ndk" ]; then
+            echo "ndk version not found in gradle/libs.versions.toml" >&2
+            exit 1
+          fi
+          # sdkmanager may stop reading before yes finishes; only its exit status matters.
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" < <(yes 2>/dev/null)
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+          # The bridge build runs with its own cache directory, restored below.
+          use-cache: false
+      - name: Prepare patched ghostty source
+        run: ./gradlew ghosttySource
+      - name: Check zig against ghostty
+        run: |
+          minimum=$(sed -n -E 's/^[[:space:]]*\.minimum_zig_version = "([^"]+)".*/\1/p' build/ghostty/source/build.zig.zon)
+          if [ -z "$minimum" ]; then
+            echo "minimum_zig_version not found in build/ghostty/source/build.zig.zon" >&2
+            exit 1
+          fi
+          case "$minimum" in
+            *-*)
+              echo "ghostty requires the zig development build $minimum; pick a ZIG_VERSION by hand" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$(printf '%s\n%s\n' "$minimum" "$ZIG_VERSION" | sort -V | head -1)" != "$minimum" ]; then
+            echo "ghostty requires zig $minimum, ZIG_VERSION is $ZIG_VERSION" >&2
+            exit 1
+          fi
+      - name: Read the pinned ghostty commit
+        id: ghostty
+        run: echo "commit=$(sed -n 's/^GHOSTTY_COMMIT=//p' gradle.properties)" >> "$GITHUB_OUTPUT"
+      # Restored only from the same ghostty commit, so that stale objects do not pile up across updates.
+      - name: Restore zig objects and packages
+        id: zig-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            build/ghostty/zig-cache
+            native/zig-pkg
+          key: ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch', 'native/**/*.zig', 'native/build.zig.zon') }}
+          restore-keys: ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-
+      - name: Build the native outputs
+        run: ./gradlew ghosttyPrebuilt
+      # A tag's cache is visible to that tag only.
+      - name: Save zig objects and packages
+        if: github.ref_type != 'tag' && steps.zig-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            build/ghostty/zig-cache
+            native/zig-pkg
+          key: ${{ steps.zig-cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ghostty-prebuilt
+          path: build/ghostty/prebuilt
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
       - name: Build
         run: ./gradlew assemble
       - uses: actions/upload-artifact@v7
@@ -51,6 +122,7 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: 0CDBE971
 
   desktop-test:
+    needs: native
     strategy:
       fail-fast: false
       matrix:
@@ -59,15 +131,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-        with:
-          zig-version: ${{ env.ZIG_VERSION }}
-          ndk: "false"
       - name: Run the desktop tests
         shell: bash
         run: ./gradlew :library:desktopTest :library-extras:desktopTest
 
   desktop-demo:
     if: startsWith(github.ref, 'refs/tags/v')
+    needs: native
     strategy:
       fail-fast: false
       matrix:
@@ -76,9 +146,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-        with:
-          zig-version: ${{ env.ZIG_VERSION }}
-          ndk: "false"
       - name: Build desktop demo uber jar
         shell: bash
         run: ./gradlew :demo-desktop:packageUberJarForCurrentOS -PVERSION_NAME="${GITHUB_REF_NAME#v}"
@@ -89,12 +156,11 @@ jobs:
           if-no-files-found: error
 
   android-test:
+    needs: native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-        with:
-          zig-version: ${{ env.ZIG_VERSION }}
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -152,8 +218,6 @@ jobs:
           fi
           echo "VERSION=${VERSION#v}" >> "$GITHUB_ENV"
       - uses: ./.github/actions/setup
-        with:
-          zig-version: ${{ env.ZIG_VERSION }}
       - name: Download desktop demo uber jars
         uses: actions/download-artifact@v8
         with:

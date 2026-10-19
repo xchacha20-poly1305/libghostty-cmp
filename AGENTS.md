@@ -9,7 +9,9 @@ All library modules use `explicitApi()`.
 
 Requires `zig` (version in `ZIG_VERSION` of `.github/workflows/build.yml`; must satisfy `build/ghostty/source/build.zig.zon`'s
 `minimum_zig_version`), `tic` (ncurses), JDK 17, and for Android the NDK version pinned in `gradle/libs.versions.toml`
-(`ndk`). Ghostty is fetched automatically at the `GHOSTTY_COMMIT` revision in `gradle.properties`.
+(`ndk`). Ghostty is fetched automatically at the `GHOSTTY_COMMIT` revision in `gradle.properties`. With
+`-PGHOSTTY_PREBUILT=<dir>` (an export written by `./gradlew ghosttyPrebuilt` to `build/ghostty/prebuilt`), the build
+copies the native outputs from there and needs none of zig, tic, the NDK or the ghostty source.
 
 - Build everything: `./gradlew assemble`
 - Desktop tests (JVM, no device): `./gradlew :library:desktopTest :library-extras:desktopTest`
@@ -44,6 +46,10 @@ plugins before the Kotlin compile:
   `GhosttyMods` from ghostty's input types.
 - `GhosttyAssetsPlugin` (applied by `:library-extras`): fetches the iTerm2 themes referenced in `build/ghostty/source/build.zig.zon`
   via `zig fetch` and compiles `xterm-ghostty` terminfo with `tic`, as Java resources.
+- Every task above writes a `GhosttyOutputTask.outputDir` and is registered through `GhosttyEnv.register`, which adds
+  it to the root `ghosttyPrebuilt` export or, with `GHOSTTY_PREBUILT`, replaces it by a `GhosttyPrebuiltTask` copying
+  the export. The zig tasks are build-cache cacheable (inputs: native sources, patches, commit, zig version, NDK
+  `source.properties`). `:library` reaches them through the `ghosttyNative` extension (`GhosttyNative`).
 
 **JNI registration.** `JNI_OnLoad` (`native/src/main.zig`) registers every public function of the `natives` struct as
 the `GhosttyVt` native method of the same name; `jni.zig` derives the JNI signature from the Zig parameter types
@@ -68,5 +74,7 @@ shows; strings are Compose resources (`composeResources/values*`).
 - `:demo-android` is the only module on AGP's built-in Kotlin; its build file raises that Kotlin to the catalog version.
 - Maven group/version/POM metadata come from `gradle.properties` (`GROUP`, `VERSION_NAME`, `POM_*`) and each module's
   `gradle.properties` (`POM_ARTIFACT_ID`).
-- CI (`.github/workflows/build.yml`, composite action `.github/actions/setup`) builds everything on Linux, runs the
-  desktop tests on Linux, macOS and Windows and the Android tests on an emulator, and publishes on `v*` tags.
+- CI (`.github/workflows/build.yml`, composite action `.github/actions/setup`): the `native` job builds the
+  `ghosttyPrebuilt` export once (the only job with zig, tic and the NDK; it alone caches the zig cache directory) and
+  uploads it as the `ghostty-prebuilt` artifact; the other jobs build against it. They build everything on Linux, run
+  the desktop tests on Linux, macOS and Windows and the Android tests on an emulator, and publish on `v*` tags.

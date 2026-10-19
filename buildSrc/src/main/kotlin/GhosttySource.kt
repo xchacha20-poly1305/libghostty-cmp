@@ -4,15 +4,20 @@ import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.api.file.Directory
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.register
 import org.gradle.process.ExecOperations
 
@@ -95,7 +100,7 @@ fun ghosttyCommit(project: Project): String = project.providers.gradleProperty("
     }
 }
 
-internal class GhosttyEnv(project: Project) {
+internal class GhosttyEnv(private val project: Project) {
     val commit: String = ghosttyCommit(project)
     val patches = project.rootProject.layout.projectDirectory.dir("patches/ghostty")
         .asFileTree.matching {
@@ -103,17 +108,59 @@ internal class GhosttyEnv(project: Project) {
         }
     val buildDir = project.rootProject.layout.buildDirectory.dir("ghostty")
     val sourceDir = buildDir.map { it.dir("source") }
+    val zigVersion: Provider<String> = project.providers.exec {
+        commandLine("zig", "version")
+    }.standardOutput.asText.map { it.trim() }
 
-    val source = project.rootProject.tasks.let { tasks ->
-        if (tasks.names.contains("ghosttySource")) {
-            tasks.named("ghosttySource")
-        } else {
-            tasks.register<GhosttySourceTask>("ghosttySource") {
-                repository.set("https://github.com/ghostty-org/ghostty.git")
-                commit.set(this@GhosttyEnv.commit)
-                patches.from(this@GhosttyEnv.patches)
-                sourceDir.set(this@GhosttyEnv.sourceDir)
+    /** A `ghosttyPrebuilt` export (`GHOSTTY_PREBUILT`) to copy outputs from instead of building them. */
+    private val prebuiltDir: Directory? = project.providers.gradleProperty("GHOSTTY_PREBUILT").orNull
+        ?.let { project.rootProject.layout.projectDirectory.dir(it) }
+
+    val source = rootTask<GhosttySourceTask>("ghosttySource") {
+        repository.set("https://github.com/ghostty-org/ghostty.git")
+        commit.set(this@GhosttyEnv.commit)
+        patches.from(this@GhosttyEnv.patches)
+        sourceDir.set(this@GhosttyEnv.sourceDir)
+    }
+
+    /**
+     * Registers [name] as a [type] task building into [outputDir] from the ghostty source and adds its output to
+     * the `ghosttyPrebuilt` export, under [name]. With `GHOSTTY_PREBUILT`, registers [name] as a
+     * [GhosttyPrebuiltTask] copying that export's output instead, so the build needs neither zig nor the source.
+     */
+    fun <T : GhosttyOutputTask> register(
+        name: String,
+        type: Class<T>,
+        outputDir: Provider<Directory>,
+        configure: T.() -> Unit,
+    ): TaskProvider<GhosttyOutputTask> {
+        val prebuilt = prebuiltDir
+        if (prebuilt != null) {
+            project.tasks.register<GhosttyPrebuiltTask>(name) {
+                prebuiltDir.set(prebuilt.dir(name))
+                this.outputDir.set(outputDir)
             }
+        } else {
+            val task = project.tasks.register(name, type) {
+                dependsOn(source)
+                this.outputDir.set(outputDir)
+                configure()
+            }
+            rootTask<Sync>("ghosttyPrebuilt") {
+                into(buildDir.map { it.dir("prebuilt") })
+            }.configure {
+                from(task) { into(name) }
+            }
+        }
+        return project.tasks.named(name, GhosttyOutputTask::class.java)
+    }
+
+    private inline fun <reified T : Task> rootTask(name: String, crossinline configure: T.() -> Unit): TaskProvider<T> {
+        val tasks = project.rootProject.tasks
+        return if (tasks.names.contains(name)) {
+            tasks.named(name, T::class.java)
+        } else {
+            tasks.register(name, T::class.java) { configure() }
         }
     }
 }

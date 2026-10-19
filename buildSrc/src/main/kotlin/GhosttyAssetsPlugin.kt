@@ -1,7 +1,6 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
-import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -13,24 +12,19 @@ import org.gradle.api.file.RelativePath
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
-import org.gradle.kotlin.dsl.register
 import org.gradle.process.ExecOperations
 
 abstract class GhosttyThemesTask @Inject constructor(
     private val execOperations: ExecOperations,
     private val fileSystemOperations: FileSystemOperations,
     private val archiveOperations: ArchiveOperations,
-) : DefaultTask() {
+) : GhosttyOutputTask() {
     @get:Input
     abstract val commit: Property<String>
 
     @get:Internal
     abstract val sourceDir: DirectoryProperty
-
-    @get:OutputDirectory
-    abstract val themesDir: DirectoryProperty
 
     @TaskAction
     fun run() {
@@ -50,7 +44,7 @@ abstract class GhosttyThemesTask @Inject constructor(
         }
         val hash = fetchOutput.toString().trim()
         val packageDir = File(zigGlobalCacheDir(), "p")
-        val themes = themesDir.get().asFile
+        val themes = outputDir.get().asFile
         fileSystemOperations.delete { delete(themes) }
         themes.mkdirs()
         val tarball = packageDir.listFiles { file -> file.name.startsWith("$hash.tar") }
@@ -123,15 +117,12 @@ abstract class GhosttyThemesTask @Inject constructor(
 abstract class GhosttyTerminfoTask @Inject constructor(
     private val execOperations: ExecOperations,
     private val fileSystemOperations: FileSystemOperations,
-) : DefaultTask() {
+) : GhosttyOutputTask() {
     @get:Input
     abstract val commit: Property<String>
 
     @get:Internal
     abstract val sourceDir: DirectoryProperty
-
-    @get:OutputDirectory
-    abstract val terminfoDir: DirectoryProperty
 
     @TaskAction
     fun run() {
@@ -171,7 +162,7 @@ abstract class GhosttyTerminfoTask @Inject constructor(
         // form "78" on case-insensitive filesystems.
         val compiled = database.walkTopDown().firstOrNull { it.isFile && it.name == "xterm-ghostty" }
             ?: throw GradleException("xterm-ghostty not found under $database")
-        val terminfo = terminfoDir.get().asFile
+        val terminfo = outputDir.get().asFile
         fileSystemOperations.delete { delete(terminfo) }
         terminfo.mkdirs()
         compiled.copyTo(File(terminfo, "xterm-ghostty"))
@@ -188,18 +179,22 @@ class GhosttyAssetsPlugin : Plugin<Project> {
         val root = project.layout.buildDirectory.dir("ghostty-resources")
         val packageDir = root.map { it.dir(GhosttyAssets.PACKAGE_PATH) }
 
-        val ghosttyThemes = project.tasks.register<GhosttyThemesTask>("ghosttyThemes") {
-            dependsOn(env.source)
+        val ghosttyThemes = env.register(
+            "ghosttyThemes",
+            GhosttyThemesTask::class.java,
+            packageDir.map { it.dir("themes") },
+        ) {
             commit.set(env.commit)
             sourceDir.set(env.sourceDir)
-            themesDir.set(packageDir.map { it.dir("themes") })
         }
 
-        val ghosttyTerminfo = project.tasks.register<GhosttyTerminfoTask>("ghosttyTerminfo") {
-            dependsOn(env.source)
+        val ghosttyTerminfo = env.register(
+            "ghosttyTerminfo",
+            GhosttyTerminfoTask::class.java,
+            packageDir.map { it.dir("terminfo") },
+        ) {
             commit.set(env.commit)
             sourceDir.set(env.sourceDir)
-            terminfoDir.set(packageDir.map { it.dir("terminfo") })
         }
 
         project.extensions.add(

@@ -1,33 +1,40 @@
 import java.io.File
 import javax.inject.Inject
-import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import org.gradle.kotlin.dsl.register
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.process.ExecOperations
+import org.gradle.work.NormalizeLineEndings
 
 /** Base for tasks that run `zig build` in the `native/` project. */
 abstract class GhosttyZigTask @Inject constructor(
     private val execOperations: ExecOperations,
-) : DefaultTask() {
+) : GhosttyOutputTask() {
     @get:Input
     abstract val commit: Property<String>
 
+    @get:Input
+    abstract val zigVersion: Property<String>
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
+    @get:NormalizeLineEndings
     abstract val sources: ConfigurableFileCollection
 
     @get:Internal
@@ -52,6 +59,7 @@ abstract class GhosttyZigTask @Inject constructor(
  * Builds the JNI library for each entry of [targets] (output subdirectory to zig target triple) into
  * `outputDir/<subdirectory>/`.
  */
+@CacheableTask
 abstract class GhosttyJniTask @Inject constructor(
     execOperations: ExecOperations,
     private val fileSystemOperations: FileSystemOperations,
@@ -60,18 +68,21 @@ abstract class GhosttyJniTask @Inject constructor(
     abstract val targets: MapProperty<String, String>
 
     /** The NDK providing bionic for Android targets. */
-    @get:Optional
-    @get:Input
-    abstract val ndkHome: Property<String>
+    @get:Internal
+    abstract val ndkHome: DirectoryProperty
 
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
+    /** Identifies the NDK release for the build cache, where [ndkHome]'s path would differ between machines. */
+    @get:Optional
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    val ndkProperties: Provider<RegularFile>
+        get() = ndkHome.file("source.properties")
 
     @TaskAction
     fun run() {
         val output = outputDir.get().asFile
         fileSystemOperations.delete { delete(output) }
-        val environment = ndkHome.orNull?.let { mapOf("ANDROID_NDK_HOME" to it) }.orEmpty()
+        val environment = ndkHome.orNull?.let { mapOf("ANDROID_NDK_HOME" to it.asFile.absolutePath) }.orEmpty()
         for ((subdirectory, target) in targets.get()) {
             val prefix = File(temporaryDir, subdirectory)
             fileSystemOperations.delete { delete(prefix) }
@@ -87,13 +98,11 @@ abstract class GhosttyJniTask @Inject constructor(
 }
 
 /** Generates the Kotlin mirrors of ghostty's input types (`zig build gen-kotlin`). */
+@CacheableTask
 abstract class GhosttyGenKotlinTask @Inject constructor(
     execOperations: ExecOperations,
     private val fileSystemOperations: FileSystemOperations,
 ) : GhosttyZigTask(execOperations) {
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
-
     @TaskAction
     fun run() {
         val prefix = temporaryDir
@@ -108,8 +117,8 @@ abstract class GhosttyGenKotlinTask @Inject constructor(
 }
 
 /**
- * Registers `ghosttyAndroidJni`, `ghosttyDesktopJni` and `ghosttyGenKotlin`; the module wires their outputs into
- * its source sets.
+ * Registers `ghosttyAndroidJni`, `ghosttyDesktopJni` and `ghosttyGenKotlin` and exposes them as the
+ * `ghosttyNative` extension ([GhosttyNative]); the module wires their outputs into its source sets.
  */
 class GhosttyNativePlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -118,17 +127,23 @@ class GhosttyNativePlugin : Plugin<Project> {
         val nativeSources = nativeDir.asFileTree.matching {
             exclude(".zig-cache/**", "zig-out/**", "zig-pkg/**")
         }
+        val ndk = project.objects.directoryProperty()
 
         fun GhosttyZigTask.configure() {
-            dependsOn(env.source)
             commit.set(env.commit)
+            zigVersion.set(env.zigVersion)
             sources.from(nativeSources, env.patches)
             projectDir.set(nativeDir)
             cacheDir.set(env.buildDir.map { it.dir("zig-cache") })
         }
 
-        project.tasks.register<GhosttyJniTask>("ghosttyAndroidJni") {
+        val androidJni = env.register(
+            "ghosttyAndroidJni",
+            GhosttyJniTask::class.java,
+            project.layout.buildDirectory.dir("ghostty-jni/android"),
+        ) {
             configure()
+            ndkHome.set(ndk)
             // Zig defaults the Android API level to 29 when the target omits it
             // (std.Target.Os.VersionRange.default).
             targets.set(
@@ -139,11 +154,14 @@ class GhosttyNativePlugin : Plugin<Project> {
                     "x86" to "x86-linux-android.21",
                 )
             )
-            outputDir.set(project.layout.buildDirectory.dir("ghostty-jni/android"))
         }
 
         // Laid out as jar resources: the desktop loader looks the library up by OS and architecture.
-        project.tasks.register<GhosttyJniTask>("ghosttyDesktopJni") {
+        val desktopJni = env.register(
+            "ghosttyDesktopJni",
+            GhosttyJniTask::class.java,
+            project.layout.buildDirectory.dir("ghostty-jni/desktop"),
+        ) {
             configure()
             val resourceDir = "io/github/xchacha20_poly1305/libghostty/native"
             targets.set(
@@ -156,12 +174,27 @@ class GhosttyNativePlugin : Plugin<Project> {
                     "windows-aarch64" to "aarch64-windows-gnu",
                 ).mapKeys { (platform, _) -> "$resourceDir/$platform" }
             )
-            outputDir.set(project.layout.buildDirectory.dir("ghostty-jni/desktop"))
         }
 
-        project.tasks.register<GhosttyGenKotlinTask>("ghosttyGenKotlin") {
+        val kotlin = env.register(
+            "ghosttyGenKotlin",
+            GhosttyGenKotlinTask::class.java,
+            project.layout.buildDirectory.dir("generated/ghostty/kotlin"),
+        ) {
             configure()
-            outputDir.set(project.layout.buildDirectory.dir("generated/ghostty/kotlin"))
         }
+
+        project.extensions.add("ghosttyNative", GhosttyNative(ndk, androidJni, desktopJni, kotlin))
     }
 }
+
+class GhosttyNative(
+    /** The NDK whose bionic sysroot the Android JNI library links against; set by the module. */
+    val ndkHome: DirectoryProperty,
+    /** JNI libraries laid out as `jniLibs`. */
+    val androidJni: TaskProvider<GhosttyOutputTask>,
+    /** JNI libraries laid out as jar resources. */
+    val desktopJni: TaskProvider<GhosttyOutputTask>,
+    /** Generated Kotlin sources. */
+    val kotlin: TaskProvider<GhosttyOutputTask>,
+)

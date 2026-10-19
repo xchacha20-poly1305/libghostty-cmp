@@ -1,12 +1,11 @@
 name: Set up the build
-description: Installs Java, the NDK, zig and Gradle, and restores the zig caches.
+description: Installs Java and Gradle and, unless the job builds them itself, fetches the native job's outputs.
 
 inputs:
-  zig-version:
-    description: zig release to install
-    required: true
-  ndk:
-    description: Whether to install the NDK, which only Android builds need
+  prebuilt:
+    description: >-
+      Whether to use the ghostty-prebuilt artifact of the native job instead of building the native outputs,
+      which needs zig, tic and the NDK
     default: "true"
 
 runs:
@@ -16,54 +15,14 @@ runs:
       with:
         distribution: temurin
         java-version: 17
-    - name: Install the NDK
-      if: inputs.ndk == 'true'
-      shell: bash
-      run: |
-        ndk=$(sed -n -E 's/^ndk = "([^"]+)".*/\1/p' gradle/libs.versions.toml)
-        if [ -z "$ndk" ]; then
-          echo "ndk version not found in gradle/libs.versions.toml" >&2
-          exit 1
-        fi
-        # sdkmanager may stop reading before yes finishes; only its exit status matters.
-        "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" < <(yes 2>/dev/null)
-    - uses: mlugg/setup-zig@v2
-      with:
-        version: ${{ inputs.zig-version }}
-    - name: Read the pinned ghostty commit
-      id: ghostty
-      shell: bash
-      run: |
-        echo "commit=$(sed -n 's/^GHOSTTY_COMMIT=//p' gradle.properties)" >> "$GITHUB_OUTPUT"
-    - name: Cache zig objects and packages
-      uses: actions/cache@v6
-      with:
-        path: |
-          build/ghostty/zig-cache
-          native/zig-pkg
-        key: ghostty-jni-${{ runner.os }}-${{ inputs.zig-version }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch', 'native/**/*.zig', 'native/build.zig.zon') }}
-        restore-keys: ghostty-jni-${{ runner.os }}-${{ inputs.zig-version }}-
     - uses: gradle/actions/setup-gradle@v6
-    - name: Prepare patched ghostty source
+    - name: Download the native outputs
+      if: inputs.prebuilt == 'true'
+      uses: actions/download-artifact@v8
+      with:
+        name: ghostty-prebuilt
+        path: ${{ runner.temp }}/ghostty-prebuilt
+    - name: Use the native outputs
+      if: inputs.prebuilt == 'true'
       shell: bash
-      run: ./gradlew ghosttySource
-    - name: Check zig against ghostty
-      shell: bash
-      env:
-        ZIG_VERSION: ${{ inputs.zig-version }}
-      run: |
-        minimum=$(sed -n -E 's/^[[:space:]]*\.minimum_zig_version = "([^"]+)".*/\1/p' build/ghostty/source/build.zig.zon)
-        if [ -z "$minimum" ]; then
-          echo "minimum_zig_version not found in build/ghostty/source/build.zig.zon" >&2
-          exit 1
-        fi
-        case "$minimum" in
-          *-*)
-            echo "ghostty requires the zig development build $minimum; pick a ZIG_VERSION by hand" >&2
-            exit 1
-            ;;
-        esac
-        if [ "$(printf '%s\n%s\n' "$minimum" "$ZIG_VERSION" | sort -V | head -1)" != "$minimum" ]; then
-          echo "ghostty requires zig $minimum, ZIG_VERSION is $ZIG_VERSION" >&2
-          exit 1
-        fi
+      run: echo "ORG_GRADLE_PROJECT_GHOSTTY_PREBUILT=$RUNNER_TEMP/ghostty-prebuilt" >> "$GITHUB_ENV"
