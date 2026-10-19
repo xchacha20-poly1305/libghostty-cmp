@@ -6,11 +6,11 @@ Multiplatform terminal, a theme catalog, and font handling.
 
 ```kotlin
 dependencies {
-    implementation("io.github.xchacha20-poly1305:libghostty:0.2.0")
+    implementation("io.github.xchacha20-poly1305:libghostty:0.2.1")
 
     // optional
-    implementation("io.github.xchacha20-poly1305:libghostty-extras:0.2.0")
-    implementation("io.github.xchacha20-poly1305:libghostty-compose:0.2.0")
+    implementation("io.github.xchacha20-poly1305:libghostty-extras:0.2.1")
+    implementation("io.github.xchacha20-poly1305:libghostty-compose:0.2.1")
 }
 ```
 
