@@ -3,7 +3,6 @@ package io.github.xchacha20_poly1305.libghostty.compose
 import io.github.xchacha20_poly1305.libghostty.GhosttyMods
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
@@ -12,37 +11,37 @@ public class GhosttyExtraKeysState {
 
     public enum class StickyState { INACTIVE, ARMED, LOCKED }
 
-    private val _ctrl = MutableStateFlow(StickyState.INACTIVE)
-    public val ctrl: StateFlow<StickyState> = _ctrl.asStateFlow()
+    public val ctrl: StateFlow<StickyState>
+        field = MutableStateFlow(StickyState.INACTIVE)
 
-    private val _alt = MutableStateFlow(StickyState.INACTIVE)
-    public val alt: StateFlow<StickyState> = _alt.asStateFlow()
+    public val alt: StateFlow<StickyState>
+        field = MutableStateFlow(StickyState.INACTIVE)
 
     private var lastCtrlTap: TimeMark? = null
     private var lastAltTap: TimeMark? = null
 
     public fun toggleCtrl() {
-        _ctrl.value = toggleModifier(_ctrl.value, lastCtrlTap)
+        ctrl.value = toggleModifier(ctrl.value, lastCtrlTap)
         lastCtrlTap = TimeSource.Monotonic.markNow()
     }
 
     public fun toggleAlt() {
-        _alt.value = toggleModifier(_alt.value, lastAltTap)
+        alt.value = toggleModifier(alt.value, lastAltTap)
         lastAltTap = TimeSource.Monotonic.markNow()
     }
 
     public fun consumeModifiers() {
-        if (_ctrl.value == StickyState.ARMED) _ctrl.value = StickyState.INACTIVE
-        if (_alt.value == StickyState.ARMED) _alt.value = StickyState.INACTIVE
+        if (ctrl.value == StickyState.ARMED) ctrl.value = StickyState.INACTIVE
+        if (alt.value == StickyState.ARMED) alt.value = StickyState.INACTIVE
     }
 
     /** The armed or locked modifiers as [GhosttyMods] bits. */
     public fun currentMods(): Int {
         var mods = 0
-        if (_ctrl.value != StickyState.INACTIVE) {
+        if (ctrl.value != StickyState.INACTIVE) {
             mods = mods or GhosttyMods.CTRL
         }
-        if (_alt.value != StickyState.INACTIVE) {
+        if (alt.value != StickyState.INACTIVE) {
             mods = mods or GhosttyMods.ALT
         }
         return mods

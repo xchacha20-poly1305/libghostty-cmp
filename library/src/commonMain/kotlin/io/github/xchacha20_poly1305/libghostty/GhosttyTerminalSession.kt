@@ -3,7 +3,6 @@ package io.github.xchacha20_poly1305.libghostty
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.ByteBuffer
@@ -112,23 +111,23 @@ public class GhosttyTerminalSession(
             }
         }
 
-    private val _title = MutableStateFlow<String?>(null)
-    public val title: StateFlow<String?> = _title.asStateFlow()
+    public val title: StateFlow<String?>
+        field = MutableStateFlow<String?>(null)
 
-    private val _workingDirectory = MutableStateFlow<String?>(null)
-    public val workingDirectory: StateFlow<String?> = _workingDirectory.asStateFlow()
+    public val workingDirectory: StateFlow<String?>
+        field = MutableStateFlow<String?>(null)
 
-    private val _progress = MutableStateFlow<GhosttyProgress?>(null)
-    public val progress: StateFlow<GhosttyProgress?> = _progress.asStateFlow()
+    public val progress: StateFlow<GhosttyProgress?>
+        field = MutableStateFlow<GhosttyProgress?>(null)
 
-    private val _backgroundColor = MutableStateFlow<Int?>(null)
-    public val backgroundColor: StateFlow<Int?> = _backgroundColor.asStateFlow()
+    public val backgroundColor: StateFlow<Int?>
+        field = MutableStateFlow<Int?>(null)
 
-    private val _exitStatus = MutableStateFlow<Int?>(null)
-    public val exitStatus: StateFlow<Int?> = _exitStatus.asStateFlow()
+    public val exitStatus: StateFlow<Int?>
+        field = MutableStateFlow<Int?>(null)
 
     public val isFinished: Boolean
-        get() = _exitStatus.value != null
+        get() = exitStatus.value != null
 
     public var selectionBackground: Int? = null
         private set
@@ -159,7 +158,7 @@ public class GhosttyTerminalSession(
     private var resizeSend: Job? = null
 
     init {
-        _backgroundColor.value = withHandle { GhosttyVt.nativeGetBackgroundColor(it) }
+        backgroundColor.value = withHandle { GhosttyVt.nativeGetBackgroundColor(it) }
             ?.takeIf { it != 0 }
     }
 
@@ -190,7 +189,7 @@ public class GhosttyTerminalSession(
         val flags = GhosttyVt.nativeTakeEventFlags(handle)
         if (flags == 0) return
         if (flags and GhosttyVt.EVENT_TITLE != 0) {
-            _title.value = GhosttyVt.nativeGetTitle(handle)?.toString(Charsets.UTF_8)
+            title.value = GhosttyVt.nativeGetTitle(handle)?.toString(Charsets.UTF_8)
         }
         if (flags and GhosttyVt.EVENT_BELL != 0) {
             host?.onBell()
@@ -207,7 +206,7 @@ public class GhosttyTerminalSession(
             }
         }
         if (flags and GhosttyVt.EVENT_PWD != 0) {
-            _workingDirectory.value = GhosttyVt.nativeGetPwd(handle)
+            workingDirectory.value = GhosttyVt.nativeGetPwd(handle)
                 ?.toString(Charsets.UTF_8)
                 ?.let(::pwdToPath)
         }
@@ -223,19 +222,19 @@ public class GhosttyTerminalSession(
             }
         }
         if (flags and GhosttyVt.EVENT_PROGRESS != 0) {
-            val progress = GhosttyVt.nativeGetProgress(handle)
-            if (progress != null) {
-                _progress.value = when (progress[0]) {
+            val report = GhosttyVt.nativeGetProgress(handle)
+            if (report != null) {
+                progress.value = when (report[0]) {
                     GhosttyVt.PROGRESS_STATE_SET -> GhosttyProgressState.SET
                     GhosttyVt.PROGRESS_STATE_ERROR -> GhosttyProgressState.ERROR
                     GhosttyVt.PROGRESS_STATE_INDETERMINATE -> GhosttyProgressState.INDETERMINATE
                     GhosttyVt.PROGRESS_STATE_PAUSE -> GhosttyProgressState.PAUSE
                     else -> null
-                }?.let { GhosttyProgress(it, progress[1].takeIf { percent -> percent >= 0 }) }
+                }?.let { GhosttyProgress(it, report[1].takeIf { percent -> percent >= 0 }) }
             }
         }
         if (flags and GhosttyVt.EVENT_COLORS != 0) {
-            _backgroundColor.value = GhosttyVt.nativeGetBackgroundColor(handle).takeIf { it != 0 }
+            backgroundColor.value = GhosttyVt.nativeGetBackgroundColor(handle).takeIf { it != 0 }
         }
     }
 
@@ -383,13 +382,13 @@ public class GhosttyTerminalSession(
                     theme.palette[index]?.toUInt()?.toLong() ?: -1L
                 },
             )
-            _backgroundColor.value = GhosttyVt.nativeGetBackgroundColor(it).takeIf { color -> color != 0 }
+            backgroundColor.value = GhosttyVt.nativeGetBackgroundColor(it).takeIf { color -> color != 0 }
         }
         host?.onTerminalChanged()
     }
 
     public fun finish(exitCode: Int = 0) {
-        _exitStatus.value = exitCode
+        exitStatus.value = exitCode
     }
 
     public fun close() {
