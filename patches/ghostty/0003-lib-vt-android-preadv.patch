@@ -7,10 +7,10 @@ diff --git a/src/lib/tinyio/posix.zig b/src/lib/tinyio/posix.zig
  
 +const pread_sym = if (posix.lfs64_abi) posix.system.pread64 else posix.system.pread;
 +
- const have_preadv = switch (builtin.os.tag) {
+ const have_preadv = switch (builtin.target.os.tag) {
      .haiku => false,
 +    // Bionic gained preadv in API 24.
-+    .linux => !builtin.abi.isAndroid() or builtin.os.version_range.linux.android >= 24,
++    .linux => !builtin.target.abi.isAndroid() or builtin.target.os.version_range.linux.android >= 24,
      else => true,
  };
  

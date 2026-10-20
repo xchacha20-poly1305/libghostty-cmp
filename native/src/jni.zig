@@ -115,13 +115,13 @@ pub const Env = extern struct {
     /// receiver first; the JNI signature comes from the remaining
     /// parameter types and the return type.
     pub fn registerNatives(self: *Env, class: Ptr, comptime natives: type) bool {
-        const decls = @typeInfo(natives).@"struct".decls;
+        const names = @typeInfo(natives).@"struct".decl_names;
         const methods = comptime methods: {
-            var methods: [decls.len]NativeMethod = undefined;
-            for (decls, &methods) |decl, *method| {
-                const func = @field(natives, decl.name);
+            var methods: [names.len]NativeMethod = undefined;
+            for (names, &methods) |name, *method| {
+                const func = @field(natives, name);
                 method.* = .{
-                    .name = decl.name,
+                    .name = name,
                     .signature = signatureOf(@TypeOf(func)),
                     .fn_ptr = &func,
                 };
@@ -135,7 +135,7 @@ pub const Env = extern struct {
 fn signatureOf(comptime Fn: type) [:0]const u8 {
     const info = @typeInfo(Fn).@"fn";
     comptime var sig: [:0]const u8 = "(";
-    inline for (info.params[2..]) |param| sig = sig ++ typeSignature(param.type.?);
+    inline for (info.param_types[2..]) |param| sig = sig ++ typeSignature(param.?);
     return sig ++ ")" ++ typeSignature(info.return_type.?);
 }
 
