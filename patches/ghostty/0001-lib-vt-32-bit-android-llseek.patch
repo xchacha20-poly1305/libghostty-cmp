@@ -7,7 +7,7 @@ diff --git a/src/lib/tinyio/posix.zig b/src/lib/tinyio/posix.zig
  
 +// 32-bit Linux without libc has no 64-bit lseek syscall; use _llseek,
 +// same as `std.Io.Threaded`.
-+const use_llseek = builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4;
++const use_llseek = builtin.target.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4;
 +
  pub fn fileSeekBy(_: ?*anyopaque, file: File, offset: i64) File.SeekError!void {
      while (true) {

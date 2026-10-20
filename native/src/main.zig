@@ -34,7 +34,7 @@ fn log(
     if (comptime !builtin.abi.isAndroid()) return std.log.defaultLog(level, scope, format, args);
     var buf: [1024]u8 = undefined;
     const prefix = if (scope == .default) "" else "(" ++ @tagName(scope) ++ ") ";
-    const text = std.fmt.bufPrintZ(&buf, prefix ++ format, args) catch blk: {
+    const text = std.mem.printSentinel(&buf, prefix ++ format, args, 0) catch blk: {
         buf[buf.len - 1] = 0;
         break :blk buf[0 .. buf.len - 1 :0];
     };
@@ -99,8 +99,9 @@ fn boolean(value: bool) jni.Boolean {
 /// Runs `encode` into a stack buffer, falling back to the heap for long
 /// output, and returns the bytes as a Java array (null when empty).
 fn encoded(env: *jni.Env, encode: anytype, args: anytype) jni.ByteArray {
-    var fba = std.heap.stackFallback(256, alloc);
-    var out: std.Io.Writer.Allocating = .init(fba.get());
+    var stack_buf: [256]u8 = undefined;
+    var stack: std.heap.BufferFirstAllocator = .init(&stack_buf, alloc);
+    var out: std.Io.Writer.Allocating = .init(stack.allocator());
     defer out.deinit();
     @call(.auto, encode, .{&out.writer} ++ args) catch return null;
     if (out.written().len == 0) return null;

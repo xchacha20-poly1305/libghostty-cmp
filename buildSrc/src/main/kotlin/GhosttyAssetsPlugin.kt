@@ -1,5 +1,6 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.URI
 import javax.inject.Inject
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -30,55 +31,48 @@ abstract class GhosttyThemesTask @Inject constructor(
     fun run() {
         val zonLines = File(sourceDir.get().asFile, "build.zig.zon").readLines()
         val anchor = zonLines.indexOfFirst { it.contains("iterm2_themes") }
-        val url = if (anchor < 0) {
-            null
-        } else {
-            zonLines.subList(anchor, minOf(anchor + 3, zonLines.size))
-                .firstNotNullOfOrNull { Regex("https://[^\"]*").find(it)?.value }
-        } ?: throw GradleException("iterm2_themes URL not found in build.zig.zon")
-        val fetchOutput = ByteArrayOutputStream()
-        execOperations.exec {
-            workingDir = sourceDir.get().asFile
-            commandLine("zig", "fetch", url)
-            standardOutput = fetchOutput
+        if (anchor < 0) throw GradleException("iterm2_themes not found in build.zig.zon")
+        val entry = zonLines.subList(anchor, minOf(anchor + 4, zonLines.size))
+        val url = zonString(entry, ".url")
+        val hash = zonString(entry, ".hash")
+
+        // Gradle downloads and unpacks the archive itself: zig fetch without
+        // --save caches the package with an extra directory level
+        // (https://codeberg.org/ziglang/zig/issues/37053), so zig only checks
+        // the hash, against a private cache it cannot break.
+        val archive = File(temporaryDir, "themes.tar.gz")
+        URI(url).toURL().openStream().use { input ->
+            archive.outputStream().use { input.copyTo(it) }
         }
-        val hash = fetchOutput.toString().trim()
-        val packageDir = File(zigGlobalCacheDir(), "p")
+        val zigCache = File(temporaryDir, "zig-cache")
+        val fetchOutput = ByteArrayOutputStream()
+        try {
+            execOperations.exec {
+                workingDir = temporaryDir
+                commandLine("zig", "fetch", archive.absolutePath)
+                environment("ZIG_GLOBAL_CACHE_DIR", zigCache.absolutePath)
+                standardOutput = fetchOutput
+            }
+        } finally {
+            fileSystemOperations.delete { delete(zigCache) }
+        }
+        val actualHash = fetchOutput.toString().trim()
+        if (actualHash != hash) {
+            throw GradleException("$url has hash $actualHash, build.zig.zon expects $hash")
+        }
+
         val themes = outputDir.get().asFile
         fileSystemOperations.delete { delete(themes) }
         themes.mkdirs()
-        val tarball = packageDir.listFiles { file -> file.name.startsWith("$hash.tar") }
-            ?.minByOrNull { it.name }
-        val bareEntry = File(packageDir, hash)
-        when {
-            tarball != null -> extract(tarball, themes)
-            bareEntry.isDirectory -> fileSystemOperations.copy {
-                from(bareEntry)
-                into(themes)
-            }
-            bareEntry.isFile -> {
-                val renamed = File(temporaryDir, "themes.tar.gz")
-                bareEntry.copyTo(renamed, overwrite = true)
-                extract(renamed, themes)
-            }
-            else -> throw GradleException("zig fetch output $hash not found under $packageDir")
-        }
+        extract(archive, themes)
         writeIndex(themes)
     }
 
-    private fun zigGlobalCacheDir(): File {
-        val envOutput = ByteArrayOutputStream()
-        execOperations.exec {
-            commandLine("zig", "env")
-            standardOutput = envOutput
-        }
-        // zig env prints JSON up to zig 0.15 and ZON from 0.16
-        // (global_cache_dir quoted and unquoted respectively).
-        val globalCacheDir = Regex("\"?global_cache_dir\"?\\s*[=:]\\s*\"([^\"]+)\"")
-            .find(envOutput.toString())
-            ?.groupValues?.get(1)
-            ?: throw GradleException("global_cache_dir not found in zig env output")
-        return File(globalCacheDir)
+    /** The string value of `key` (such as `.url`) among the lines of a ZON dependency entry. */
+    private fun zonString(entry: List<String>, key: String): String {
+        val line = entry.firstOrNull { it.trim().startsWith("$key ") }
+            ?: throw GradleException("$key not found for iterm2_themes in build.zig.zon")
+        return line.substringAfter('"').substringBefore('"')
     }
 
     private fun writeIndex(themes: File) {

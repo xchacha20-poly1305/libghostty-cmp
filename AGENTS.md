@@ -46,8 +46,8 @@ plugins before the Kotlin compile:
   `io/github/xchacha20_poly1305/libghostty/native/<os>-<arch>/`, which `Platform.desktop.kt` extracts to the user
   cache directory and loads; `ghosttyGenKotlin` runs `native/src/gen_kotlin.zig` to generate `GhosttyKey` and
   `GhosttyMods` from ghostty's input types.
-- `GhosttyAssetsPlugin` (applied by `:library-extras`): fetches the iTerm2 themes referenced in `build/ghostty/source/build.zig.zon`
-  via `zig fetch` and compiles `xterm-ghostty` terminfo with `tic`, as Java resources.
+- `GhosttyAssetsPlugin` (applied by `:library-extras`): downloads the iTerm2 themes referenced in `build/ghostty/source/build.zig.zon`,
+  checks their hash with `zig fetch` against a private cache, and compiles `xterm-ghostty` terminfo with `tic`, as Java resources.
 - Every task above writes a `GhosttyOutputTask.outputDir` and is registered through `GhosttyEnv.register`, which adds
   it to the root `ghosttyPrebuilt` export or, with `GHOSTTY_PREBUILT`, replaces it by a `GhosttyPrebuiltTask` copying
   the export. The zig tasks are build-cache cacheable (inputs: native sources, patches, commit, zig version, NDK

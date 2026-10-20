@@ -47,9 +47,12 @@ abstract class GhosttyZigTask @Inject constructor(
         execOperations.exec {
             workingDir = projectDir.get().asFile
             environment(environment)
+            // Since zig 0.17 the local cache entries are only reused while the global cache that built them
+            // (compiler_rt, libc) is still there, so both live in cacheDir, which CI caches as one.
+            val cache = cacheDir.get().asFile.absolutePath
+            environment("ZIG_GLOBAL_CACHE_DIR", cache)
             commandLine(
-                listOf("zig", "build") + args +
-                    listOf("--cache-dir", cacheDir.get().asFile.absolutePath, "--prefix", prefix.absolutePath)
+                listOf("zig", "build") + args + listOf("--cache-dir", cache, "--prefix", prefix.absolutePath)
             )
         }
     }

@@ -29,10 +29,10 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/gen_kotlin.zig"),
             .target = host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }),
     });
-    gen.root_module.addImport("ghostty-vt", ghosttyDependency(b, host, .Debug).module("ghostty-vt"));
+    gen.root_module.addImport("ghostty-vt", ghosttyDependency(b, host, .debug).module("ghostty-vt"));
     const run_gen = b.addRunArtifact(gen);
     const kotlin_dir = run_gen.addOutputDirectoryArg("kotlin");
     const gen_step = b.step("gen-kotlin", "Generate the Kotlin mirrors of ghostty's input types");
@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) !void {
 fn ghosttyDependency(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) *std.Build.Dependency {
     return b.dependency("ghostty", .{ .target = target, .optimize = optimize });
 }
@@ -57,7 +57,7 @@ fn ghosttyDependency(
 fn bridgeModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) *std.Build.Module {
     const ghostty = ghosttyDependency(b, target, optimize);
     const mod = b.createModule(.{
@@ -65,7 +65,7 @@ fn bridgeModule(
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .strip = optimize != .Debug,
+        .strip = optimize != .debug,
     });
     const vt = ghostty.module("ghostty-vt");
     mod.addImport("ghostty-vt", vt);

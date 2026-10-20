@@ -42,10 +42,11 @@ fn writeKey(w: *std.Io.Writer) !void {
         \\public enum class GhosttyKey(internal val value: Int) {
         \\
     );
-    inline for (@typeInfo(vt.input.Key).@"enum".fields) |field| {
+    const info = @typeInfo(vt.input.Key).@"enum";
+    inline for (info.field_names, info.field_values) |name, value| {
         try w.writeAll("    ");
-        try writeUpperSnake(w, field.name);
-        try w.print("({d}),\n", .{field.value});
+        try writeUpperSnake(w, name);
+        try w.print("({d}),\n", .{value});
     }
     try w.writeAll("}\n");
 }

@@ -29,8 +29,8 @@ pub const Placement = extern struct {
 const max_image_pixels = 100 * 1000 * 1000;
 
 /// Collects the placements visible in the viewport, ordered by z. Virtual
-/// (unicode placeholder) placements are resolved from the placeholder
-/// cells and drawn at z 0.
+/// (unicode placeholder) placements and those relative to them come from
+/// the render state, so call this after a snapshot.
 pub fn placements(session: *Session, alloc: std.mem.Allocator) ![]Placement {
     const t = &session.terminal;
     const screen = t.screens.active;
@@ -67,7 +67,7 @@ pub fn placements(session: *Session, alloc: std.mem.Allocator) ![]Placement {
         });
     }
 
-    try appendVirtual(&list, alloc, t, storage);
+    try appendVirtual(&list, alloc, &session.render);
 
     std.mem.sortUnstable(Placement, list.items, {}, struct {
         fn lessThan(_: void, a: Placement, b: Placement) bool {
@@ -78,50 +78,37 @@ pub fn placements(session: *Session, alloc: std.mem.Allocator) ![]Placement {
     return list.toOwnedSlice(alloc);
 }
 
+/// Appends the placements the last render state update resolved from
+/// placeholder cells: virtual placements and the relative placements
+/// attached to them.
 fn appendVirtual(
     list: *std.ArrayList(Placement),
     alloc: std.mem.Allocator,
-    t: *vt.Terminal,
-    storage: *const graphics.ImageStorage,
+    render: *const vt.RenderState,
 ) !void {
-    if (t.cols == 0 or t.rows == 0) return;
-    const cell_width = t.width_px / t.cols;
-    const cell_height = t.height_px / t.rows;
-    if (cell_width == 0 or cell_height == 0) return;
-
-    const pages = &t.screens.active.pages;
-    const viewport_top = pages.getTopLeft(.viewport);
-    const bottom_right = pages.getBottomRight(.viewport) orelse return;
-    const viewport_y = (pages.pointFromPin(.screen, viewport_top) orelse return).screen.y;
-
-    var it = graphics.unicode.placementIterator(viewport_top, bottom_right);
+    var it = render.imagePlacementIterator();
     while (it.next()) |p| {
-        const image = storage.imageById(p.image_id) orelse continue;
-        const rp = p.renderPlacement(storage, &image, cell_width, cell_height) catch continue;
-        if (rp.dest_width == 0 or rp.dest_height == 0 or
-            rp.source_width == 0 or rp.source_height == 0) continue;
-        const origin = (pages.pointFromPin(.screen, rp.top_left) orelse continue).screen;
         try list.append(alloc, .{
             .image_id = p.image_id,
-            .image_generation = @intCast(image.generation),
-            .viewport_col = origin.x,
-            .viewport_row = @as(i64, origin.y) - @as(i64, viewport_y),
-            .offset_x = rp.offset_x,
-            .offset_y = rp.offset_y,
-            .dest_width = rp.dest_width,
-            .dest_height = rp.dest_height,
-            .source_x = rp.source_x,
-            .source_y = rp.source_y,
-            .source_width = rp.source_width,
-            .source_height = rp.source_height,
-            .z = 0,
+            .image_generation = @intCast(p.image_generation),
+            .viewport_col = p.x,
+            .viewport_row = p.y,
+            .offset_x = p.offset_x,
+            .offset_y = p.offset_y,
+            .dest_width = p.width,
+            .dest_height = p.height,
+            .source_x = p.source_x,
+            .source_y = p.source_y,
+            .source_width = p.source_width,
+            .source_height = p.source_height,
+            .z = p.z,
         });
     }
 }
 
 /// The viewport cell a placement starts at, or null when no part of it is
 /// in the viewport. Relative placements resolve through their parent
-/// chain; chains rooted at a virtual placement have no screen position.
+/// chain; chains rooted at a virtual placement come from the render state.
 fn viewportPos(
     p: *const graphics.ImageStorage.Placement,
     image: *const graphics.Image,

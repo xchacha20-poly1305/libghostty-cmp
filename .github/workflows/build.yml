@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  ZIG_VERSION: 0.16.0
+  ZIG_VERSION: 0.17.0
 
 jobs:
   # Builds everything that needs zig, tic or the NDK once; the other jobs build against its export.
@@ -72,7 +72,7 @@ jobs:
           path: |
             build/ghostty/zig-cache
             native/zig-pkg
-          key: ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch', 'native/**/*.zig', 'native/build.zig.zon') }}
+          key: ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-${{ hashFiles('patches/ghostty/*.patch', 'native/**/*.zig', 'native/build.zig.zon', 'buildSrc/src/main/kotlin/GhosttyNativePlugin.kt') }}
           restore-keys: ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-
       - name: Build the native outputs
         run: ./gradlew ghosttyPrebuilt
