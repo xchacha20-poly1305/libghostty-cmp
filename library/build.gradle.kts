@@ -9,6 +9,18 @@ val ghosttyNative = the<GhosttyNative>()
 // Only the sysroot is used: zig links the JNI library against bionic.
 ghosttyNative.ndkHome.set(androidComponents.sdkComponents.sdkDirectory.map { it.dir("ndk/${libs.versions.ndk.get()}") })
 
+val consumerRules = file("consumer-rules.pro")
+
+// The AAR carries consumerKeepRules; a jar carries its rules under META-INF/proguard/,
+// where R8 picks them up on its own.
+val desktopConsumerRules = tasks.register<Sync>("desktopConsumerRules") {
+    from(consumerRules) {
+        into("META-INF/proguard")
+        rename { "libghostty.pro" }
+    }
+    into(layout.buildDirectory.dir("generated/consumerRules/desktop"))
+}
+
 kotlin {
     android {
         namespace = "io.github.xchacha20_poly1305.libghostty"
@@ -16,7 +28,7 @@ kotlin {
         optimization {
             consumerKeepRules.apply {
                 publish = true
-                file("consumer-rules.pro")
+                file(consumerRules)
             }
         }
         withDeviceTestBuilder {
@@ -39,6 +51,7 @@ kotlin {
         }
         named("desktopMain") {
             resources.srcDir(ghosttyNative.desktopJni.flatMap { it.outputDir })
+            resources.srcDir(desktopConsumerRules)
             dependencies {
                 implementation(libs.kotlinx.coroutines.swing)
             }
