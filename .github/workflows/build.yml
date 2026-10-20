@@ -134,6 +134,9 @@ jobs:
       - name: Run the desktop tests
         shell: bash
         run: ./gradlew :library:desktopTest :library-extras:desktopTest
+      - name: Load the library after R8
+        shell: bash
+        run: ./gradlew :shrink-check:shrinkCheck
 
   desktop-demo:
     if: startsWith(github.ref, 'refs/tags/v')

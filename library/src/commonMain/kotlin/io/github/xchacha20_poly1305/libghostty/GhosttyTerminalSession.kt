@@ -65,7 +65,7 @@ public class GhosttyTerminalSession(
         options.terminfoName,
         options.defaultCursorStyle.nativeValue,
         options.defaultCursorBlink,
-        this,
+        GhosttyVtCallbacks(this),
     )
 
     private val terminal = GhosttyTerminal().also { it.handle = handle }
@@ -243,18 +243,14 @@ public class GhosttyTerminalSession(
         if (report != null && report.isNotEmpty()) sendRawInput(report)
     }
 
-    // Called from native on the thread that calls [feedOutput].
-    @Suppress("unused")
-    private fun clipboardHasText(): Boolean = try {
+    internal fun clipboardHasText(): Boolean = try {
         clipboard?.hasText() ?: false
     } catch (e: Exception) {
         logError(TAG, "clipboard query failed", e)
         false
     }
 
-    // Called from native on the thread that calls [feedOutput].
-    @Suppress("unused")
-    private fun readClipboardForProgram(granted: Boolean): ByteArray? {
+    internal fun readClipboardForProgram(granted: Boolean): ByteArray? {
         val clipboard = clipboard ?: return null
         if (!granted && !clipboardReadApproved) {
             if (clipboardReadPromptPending.compareAndSet(false, true)) {

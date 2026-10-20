@@ -11,7 +11,8 @@ const kitty = @import("kitty.zig");
 
 const package = "io/github/xchacha20_poly1305/libghostty/";
 const vt_class = package ++ "GhosttyVt";
-const SessionRef = jni.Ref("L" ++ package ++ "GhosttyTerminalSession;");
+const callbacks_class = package ++ "GhosttyVtCallbacks";
+const CallbacksRef = jni.Ref("L" ++ callbacks_class ++ ";");
 
 const alloc = std.heap.c_allocator;
 
@@ -51,10 +52,10 @@ export fn JNI_OnLoad(vm: *jni.JavaVm, _: ?*anyopaque) jni.Int {
     const vt_cls = env.call("FindClass", .{vt_class}) orelse return jni.err;
     if (!env.registerNatives(vt_cls, natives)) return jni.err;
 
-    const session_cls = env.call("FindClass", .{package ++ "GhosttyTerminalSession"}) orelse return jni.err;
-    Session.owner_methods = .{
-        .clipboard_has_text = env.call("GetMethodID", .{ session_cls, "clipboardHasText", "()Z" }) orelse return jni.err,
-        .read_clipboard_for_program = env.call("GetMethodID", .{ session_cls, "readClipboardForProgram", "(Z)[B" }) orelse return jni.err,
+    const callbacks_cls = env.call("FindClass", .{callbacks_class}) orelse return jni.err;
+    Session.callback_methods = .{
+        .clipboard_has_text = env.call("GetMethodID", .{ callbacks_cls, "clipboardHasText", "()Z" }) orelse return jni.err,
+        .read_clipboard_for_program = env.call("GetMethodID", .{ callbacks_cls, "readClipboardForProgram", "(Z)[B" }) orelse return jni.err,
     };
 
     vt.sys.decode_png = &decodePng;
@@ -168,15 +169,15 @@ const natives = struct {
         terminfo_name: jni.String,
         cursor_style: jni.Int,
         cursor_blink: jni.Boolean,
-        owner: SessionRef,
+        callbacks: CallbacksRef,
     ) i64 {
         const version = if (xtversion != null) env.stringAlloc(alloc, xtversion) catch return 0 else &.{};
         defer alloc.free(version);
         const terminfo = if (terminfo_name != null) env.stringAlloc(alloc, terminfo_name) catch return 0 else null;
         defer if (terminfo) |name| alloc.free(name);
 
-        const owner_ref = if (owner != null) env.call("NewGlobalRef", .{owner}) else null;
-        const s = Session.create(alloc, @ptrCast(owner_ref), .{
+        const callbacks_ref = if (callbacks != null) env.call("NewGlobalRef", .{callbacks}) else null;
+        const s = Session.create(alloc, @ptrCast(callbacks_ref), .{
             .cols = std.math.cast(u16, cols) orelse 0,
             .rows = std.math.cast(u16, rows) orelse 0,
             .max_scrollback_lines = @intCast(@max(max_scrollback_lines, 0)),
@@ -186,7 +187,7 @@ const natives = struct {
             .cursor_blink = cursor_blink != 0,
         }) catch |err| {
             std.log.err("failed to create terminal session: {t}", .{err});
-            if (owner_ref != null) env.call("DeleteGlobalRef", .{owner_ref});
+            if (callbacks_ref != null) env.call("DeleteGlobalRef", .{callbacks_ref});
             return 0;
         };
         return @intCast(@intFromPtr(s));
@@ -194,7 +195,7 @@ const natives = struct {
 
     pub fn nativeFree(env: *jni.Env, _: jni.Object, handle: i64) void {
         const s = session(handle);
-        if (s.owner != null) env.call("DeleteGlobalRef", .{s.owner});
+        if (s.callbacks != null) env.call("DeleteGlobalRef", .{s.callbacks});
         s.destroy();
     }
 

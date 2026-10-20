@@ -17,6 +17,7 @@ copies the native outputs from there and needs none of zig, tic, the NDK or the 
 - Desktop tests (JVM, no device): `./gradlew :library:desktopTest :library-extras:desktopTest`
 - Android tests (need a device/emulator): `./gradlew :library:connectedAndroidDeviceTest :library-extras:connectedAndroidDeviceTest`
 - Single test class: `./gradlew :library:desktopTest --tests '*GhosttyVtBridgeTest'`
+- Keep rules: `./gradlew :shrink-check:shrinkCheck` shrinks a minimal consumer with R8 and loads the JNI library
 - Bridge only: prepare sources with `./gradlew ghosttySource`, then `cd native && zig build -Dtarget=x86_64-linux-gnu` (`ANDROID_NDK_HOME` for Android targets);
   `zig build gen-kotlin` writes the generated Kotlin enums
 - Try it by hand: `./gradlew :demo-desktop:run` (shell through pty4j), `:demo-android:installDebug` (echo session)
@@ -27,7 +28,8 @@ The tests in `commonTest` run both on the desktop JVM and, through `androidDevic
 # Architecture
 
 Modules (`settings.gradle.kts`): `:library` (core), `:library-extras` (themes, terminfo, fonts), `:library-compose`
-(Compose Multiplatform terminal, minSdk 23; others minSdk 21), plus the unpublished `:demo-desktop` and `:demo-android`.
+(Compose Multiplatform terminal, minSdk 23; others minSdk 21), plus the unpublished `:demo-desktop`, `:demo-android`
+and `:shrink-check`.
 Each library module has the targets `android` (AGP's KMP plugin) and `jvm("desktop")`. With only JVM targets,
 `commonMain` uses JDK APIs directly.
 
@@ -53,8 +55,12 @@ plugins before the Kotlin compile:
 
 **JNI registration.** `JNI_OnLoad` (`native/src/main.zig`) registers every public function of the `natives` struct as
 the `GhosttyVt` native method of the same name; `jni.zig` derives the JNI signature from the Zig parameter types
-(`jni.Ref("L...;")` for objects). Renaming a native method means renaming the Zig function; renaming the package means
-updating `package` in `main.zig` and `library/consumer-rules.pro`. ELF builds export only `JNI_OnLoad` (`native/jni.map`).
+(`jni.Ref("L...;")` for objects). Calls from native into Kotlin go through `GhosttyVtCallbacks`, whose methods
+`JNI_OnLoad` also resolves by name. The native side must reach no other Kotlin class: `library/consumer-rules.pro`
+(shipped in the AAR and, under `META-INF/proguard/`, in the desktop jar) keeps exactly these two classes whole, and
+`:shrink-check` fails when an app that minifies could not load the library. Renaming a native method means renaming
+the Zig function; renaming the package means updating `package` in `main.zig` and `library/consumer-rules.pro`. ELF
+builds export only `JNI_OnLoad` (`native/jni.map`).
 
 **Kotlin layer.** In `:library`, `GhosttyVt` is the internal JNI surface; `GhosttyTerminalSession` owns a terminal,
 exposes state flows and an `EventListener`, talks to the host through a `Transport` (`feedOutput`/`finish` are

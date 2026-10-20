@@ -29,7 +29,7 @@ internal object GhosttyVt {
         terminfoName: String?,
         cursorStyle: Int,
         cursorBlink: Boolean,
-        owner: GhosttyTerminalSession?,
+        callbacks: GhosttyVtCallbacks?,
     ): Long
 
     external fun nativeFree(handle: Long)

@@ -1,12 +1,6 @@
-# The JNI library registers GhosttyVt's natives by name in JNI_OnLoad, with
-# signatures that name GhosttyTerminalSession, and calls back into the session.
--keepclasseswithmembernames class io.github.xchacha20_poly1305.libghostty.GhosttyVt {
-    native <methods>;
-}
-# These callbacks have no caller on the Java side, so keeping only their names
-# lets the shrinker delete them; JNI_OnLoad then fails to find them and the
-# library never loads.
--keep class io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession {
-    private boolean clipboardHasText();
-    private byte[] readClipboardForProgram(boolean);
-}
+# The JNI library reaches Kotlin only through these two classes, by name:
+# JNI_OnLoad registers every native of GhosttyVt and looks up the methods of
+# GhosttyVtCallbacks, and the library fails to load when any of them is gone.
+# The shrinker cannot see those lookups, so both classes are kept whole.
+-keep class io.github.xchacha20_poly1305.libghostty.GhosttyVt { *; }
+-keep class io.github.xchacha20_poly1305.libghostty.GhosttyVtCallbacks { *; }

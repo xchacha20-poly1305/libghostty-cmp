@@ -73,10 +73,10 @@ progress_percent: i32 = -1,
 color_scheme_dark: bool = true,
 background: i32 = 0,
 
-/// The GhosttyTerminalSession that owns this terminal, for clipboard reads
-/// the program requests. `env` is only set while Kotlin is inside a call
-/// that can run the stream.
-owner: jni.Object,
+/// The session's GhosttyVtCallbacks, for clipboard reads the program
+/// requests. `env` is only set while Kotlin is inside a call that can run
+/// the stream.
+callbacks: jni.Object,
 env: ?*jni.Env = null,
 
 pub const Options = struct {
@@ -89,7 +89,7 @@ pub const Options = struct {
     cursor_blink: bool,
 };
 
-pub fn create(alloc: std.mem.Allocator, owner: jni.Object, opts: Options) !*Session {
+pub fn create(alloc: std.mem.Allocator, callbacks: jni.Object, opts: Options) !*Session {
     if (opts.cols == 0 or opts.rows == 0) return error.InvalidValue;
 
     const self = try alloc.create(Session);
@@ -103,7 +103,7 @@ pub fn create(alloc: std.mem.Allocator, owner: jni.Object, opts: Options) !*Sess
         .terminal = undefined,
         .stream = undefined,
         .xtversion = xtversion,
-        .owner = owner,
+        .callbacks = callbacks,
     };
     errdefer self.io.deinit();
 
@@ -327,7 +327,7 @@ fn clipboardWrite(handler: *Handler, write_: vt.clipboard.Write) void {
 fn clipboardRead(handler: *Handler, read: vt.clipboard.Read) void {
     const self = fromHandler(handler);
     const env = self.env orelse return read.reply(.denied);
-    const methods = owner_methods orelse return read.reply(.denied);
+    const methods = callback_methods orelse return read.reply(.denied);
 
     const text_mime: ?[]const u8 = for (read.mimes) |mime| {
         if (vt.clipboard.isTextMime(mime)) break mime;
@@ -335,7 +335,7 @@ fn clipboardRead(handler: *Handler, read: vt.clipboard.Read) void {
 
     const available: []const []const u8 = available: {
         if (!read.list) break :available &.{};
-        const has_text = env.call("CallBooleanMethodA", .{ self.owner, methods.clipboard_has_text, null });
+        const has_text = env.call("CallBooleanMethodA", .{ self.callbacks, methods.clipboard_has_text, null });
         if (env.clearException() or has_text == 0) break :available &.{};
         break :available &.{"text/plain"};
     };
@@ -343,7 +343,7 @@ fn clipboardRead(handler: *Handler, read: vt.clipboard.Read) void {
     const mime = text_mime orelse return read.reply(.{ .success = .{ .available = available } });
 
     const args = [_]jni.Value{.{ .z = @intFromBool(read.granted) }};
-    const data: jni.ByteArray = @ptrCast(env.call("CallObjectMethodA", .{ self.owner, methods.read_clipboard_for_program, &args }));
+    const data: jni.ByteArray = @ptrCast(env.call("CallObjectMethodA", .{ self.callbacks, methods.read_clipboard_for_program, &args }));
     if (env.clearException() or data == null) return read.reply(.denied);
     defer env.call("DeleteLocalRef", .{data});
 
@@ -357,11 +357,11 @@ fn clipboardRead(handler: *Handler, read: vt.clipboard.Read) void {
     } });
 }
 
-/// Methods on GhosttyTerminalSession the clipboard read effect calls,
+/// Methods on GhosttyVtCallbacks the clipboard read effect calls,
 /// resolved once in JNI_OnLoad.
-pub const OwnerMethods = struct {
+pub const CallbackMethods = struct {
     clipboard_has_text: jni.MethodId,
     read_clipboard_for_program: jni.MethodId,
 };
 
-pub var owner_methods: ?OwnerMethods = null;
+pub var callback_methods: ?CallbackMethods = null;
