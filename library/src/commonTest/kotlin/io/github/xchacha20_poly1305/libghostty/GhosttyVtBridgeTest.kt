@@ -24,6 +24,7 @@ class GhosttyVtBridgeTest {
         "xterm-256color",
         GhosttyCursorStyle.BLOCK.nativeValue,
         true,
+        false,
         null,
     ).also { assertNotEquals(0L, it, "terminal creation failed") }
 
@@ -55,6 +56,37 @@ class GhosttyVtBridgeTest {
     @Test
     fun xtversionReportsConfiguredVersion() {
         assertEquals("\u001bP>|libghostty-test\u001b\\", write("\u001b[>q"))
+    }
+
+    @Test
+    fun graphemeClusterModeFollowsDefault() {
+        val requestGraphemeCluster = "\u001b[?2027\$p"
+        assertEquals("\u001b[?2027;2\$y", write(requestGraphemeCluster))
+
+        val clustering = GhosttyVt.nativeCreate(
+            80,
+            24,
+            1000,
+            "libghostty-test",
+            "xterm-256color",
+            GhosttyCursorStyle.BLOCK.nativeValue,
+            true,
+            true,
+            null,
+        )
+        assertNotEquals(0L, clustering, "terminal creation failed")
+        try {
+            fun writeClustering(text: String): String? {
+                val bytes = text.toByteArray(Charsets.UTF_8)
+                return GhosttyVt.nativeWrite(clustering, bytes, 0, bytes.size)?.toString(Charsets.UTF_8)
+            }
+            assertEquals("\u001b[?2027;1\$y", writeClustering(requestGraphemeCluster))
+            // A full reset restores the configured default, not the mode's built-in one.
+            writeClustering("\u001b[?2027l\u001bc")
+            assertEquals("\u001b[?2027;1\$y", writeClustering(requestGraphemeCluster))
+        } finally {
+            GhosttyVt.nativeFree(clustering)
+        }
     }
 
     @Test

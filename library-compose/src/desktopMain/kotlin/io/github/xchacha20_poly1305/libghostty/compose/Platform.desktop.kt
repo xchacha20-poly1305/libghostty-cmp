@@ -25,7 +25,9 @@ import org.jetbrains.skia.FontMgr
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Paint
+import org.jetbrains.skia.TextLine
 import org.jetbrains.skia.Typeface
+import org.jetbrains.skia.shaper.ShapingOptions
 import org.jetbrains.skia.FontStyle as SkFontStyle
 
 internal actual fun GlyphPainter(
@@ -45,9 +47,14 @@ internal actual fun GlyphPainter(
     )
 }
 
+private const val SHAPED_CACHE_SIZE = 256
+
 /**
  * Draws with Skia directly. Skia fonts do not fall back to other typefaces for missing glyphs, so cells whose
  * first character the terminal font lacks use the system's choice for that character.
+ *
+ * `drawString` maps each codepoint to a glyph on its own, which breaks emoji ZWJ sequences, flags and combining
+ * marks apart; cells holding more than one codepoint are shaped instead, and the shaped lines are cached.
  */
 private class SkiaGlyphPainter(
     regular: Typeface,
@@ -67,6 +74,11 @@ private class SkiaGlyphPainter(
         synthesizeItalic = boldItalic == null || boldItalic == regular,
     )
     private val fallbacks = HashMap<Int, Font?>()
+    private val shapingOptions = ShapingOptions.DEFAULT.withFontMgr(FontMgr.default)
+    private val shaped = object : LinkedHashMap<ShapedKey, TextLine>(SHAPED_CACHE_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ShapedKey, TextLine>): Boolean =
+            (size > SHAPED_CACHE_SIZE).also { if (it) eldest.value.close() }
+    }
     private val paint = Paint().apply { isAntiAlias = true }
 
     override val cellWidth: Float = regularFont.measureTextWidth("M")
@@ -95,8 +107,16 @@ private class SkiaGlyphPainter(
         val codepoint = Character.codePointAt(text, offset, offset + length)
         val font = if (styled.getUTF32Glyph(codepoint) != 0.toShort()) styled else fallback(codepoint) ?: styled
         paint.color = color
-        canvas.skiaCanvas.drawString(String(text, offset, length), x, baselineY, font, paint)
+        val string = String(text, offset, length)
+        if (Character.charCount(codepoint) == length) {
+            canvas.skiaCanvas.drawString(string, x, baselineY, font, paint)
+        } else {
+            val line = shaped.getOrPut(ShapedKey(string, font)) { TextLine.make(string, font, shapingOptions) }
+            canvas.skiaCanvas.drawTextLine(line, x, baselineY, paint)
+        }
     }
+
+    private data class ShapedKey(val text: String, val font: Font)
 
     private fun fallback(codepoint: Int): Font? = fallbacks.getOrPut(codepoint) {
         FontMgr.default.matchFamilyStyleCharacter(null, SkFontStyle.NORMAL, null, codepoint)?.let { font(it) }

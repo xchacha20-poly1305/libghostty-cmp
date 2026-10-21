@@ -87,6 +87,8 @@ pub const Options = struct {
     terminfo_name: ?[]const u8,
     cursor_style: vt.CursorStyle,
     cursor_blink: bool,
+    /// Whether grapheme clustering (mode 2027) is set initially and after a reset.
+    grapheme_cluster: bool,
 };
 
 pub fn create(alloc: std.mem.Allocator, callbacks: jni.Object, opts: Options) !*Session {
@@ -120,6 +122,7 @@ pub fn create(alloc: std.mem.Allocator, callbacks: jni.Object, opts: Options) !*
         },
         .default_cursor_style = opts.cursor_style,
         .default_cursor_blink = opts.cursor_blink,
+        .default_modes = .{ .grapheme_cluster = opts.grapheme_cluster },
     });
     errdefer self.terminal.deinit(alloc);
 

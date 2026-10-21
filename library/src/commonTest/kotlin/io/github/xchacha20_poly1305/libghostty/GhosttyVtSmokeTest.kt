@@ -30,6 +30,7 @@ class GhosttyVtSmokeTest {
             terminfoName,
             GhosttyCursorStyle.BLOCK.nativeValue,
             true,
+            false,
             null,
         )
         assertNotEquals(0L, handle, "terminal creation failed")

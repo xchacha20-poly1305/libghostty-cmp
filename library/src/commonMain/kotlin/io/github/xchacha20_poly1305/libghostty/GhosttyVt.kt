@@ -29,6 +29,7 @@ internal object GhosttyVt {
         terminfoName: String?,
         cursorStyle: Int,
         cursorBlink: Boolean,
+        graphemeCluster: Boolean,
         callbacks: GhosttyVtCallbacks?,
     ): Long
 

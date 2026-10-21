@@ -49,6 +49,24 @@ class GhosttyRenderStateTest {
     }
 
     @Test
+    fun graphemeClusterJoinsZwjSequenceIntoOneCell() {
+        val family = "👨‍👩‍👧"
+        val clustering = GhosttyTerminalSession(
+            GhosttyTerminalSession.Options(columns = 20, rows = 5, defaultGraphemeCluster = true),
+        )
+        try {
+            clustering.feedOutput("${family}x".encodeToByteArray())
+            val state = GhosttyRenderState()
+            assertTrue(clustering.withTerminal { state.update(it) }!!)
+            assertEquals(family, String(state.rowText(0), state.textOffset(0, 0), state.textLength(0, 0)))
+            assertEquals(GhosttyCellFlags.WIDE, state.flags(0, 0) and GhosttyCellFlags.WIDE)
+            assertEquals("x", String(state.rowText(0), state.textOffset(2, 0), state.textLength(2, 0)))
+        } finally {
+            clustering.close()
+        }
+    }
+
+    @Test
     fun newStateReadsTheWholeScreen() {
         write("first\r\nsecond")
         assertTrue(update(GhosttyRenderState()))

@@ -31,6 +31,11 @@ public class GhosttyTerminalSession(
         public val terminfoName: String? = "xterm-256color",
         public val defaultCursorStyle: GhosttyCursorStyle = GhosttyCursorStyle.BLOCK,
         public val defaultCursorBlink: Boolean = true,
+        /**
+         * Whether grapheme clustering (DEC mode 2027) is set initially and after a reset, so multi-codepoint
+         * emoji and combining sequences take their Unicode width. Programs can still toggle the mode.
+         */
+        public val defaultGraphemeCluster: Boolean = false,
     ) {
         init {
             require(columns >= 1) { "columns must be >= 1" }
@@ -65,6 +70,7 @@ public class GhosttyTerminalSession(
         options.terminfoName,
         options.defaultCursorStyle.nativeValue,
         options.defaultCursorBlink,
+        options.defaultGraphemeCluster,
         GhosttyVtCallbacks(this),
     )
 

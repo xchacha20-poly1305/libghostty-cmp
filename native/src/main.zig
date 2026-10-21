@@ -170,6 +170,7 @@ const natives = struct {
         terminfo_name: jni.String,
         cursor_style: jni.Int,
         cursor_blink: jni.Boolean,
+        grapheme_cluster: jni.Boolean,
         callbacks: CallbacksRef,
     ) i64 {
         const version = if (xtversion != null) env.stringAlloc(alloc, xtversion) catch return 0 else &.{};
@@ -186,6 +187,7 @@ const natives = struct {
             .terminfo_name = terminfo,
             .cursor_style = std.enums.fromInt(vt.CursorStyle, cursor_style) orelse .block,
             .cursor_blink = cursor_blink != 0,
+            .grapheme_cluster = grapheme_cluster != 0,
         }) catch |err| {
             std.log.err("failed to create terminal session: {t}", .{err});
             if (callbacks_ref != null) env.call("DeleteGlobalRef", .{callbacks_ref});
