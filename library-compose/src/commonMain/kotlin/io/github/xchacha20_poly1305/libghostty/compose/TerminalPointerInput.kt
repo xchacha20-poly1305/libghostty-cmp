@@ -32,10 +32,6 @@ internal fun Modifier.terminalPointerInput(
                 if (event.type != PointerEventType.Press) continue
                 val down = event.changes.firstOrNull { it.pressed && !it.previousPressed } ?: continue
                 fling?.cancel()
-                if (hitsJumpChip(controller, down.position)) {
-                    jumpChipPress(controller, down)
-                    continue
-                }
                 if (down.type == PointerType.Mouse) {
                     val previous = lastClick
                     val doubleClick = previous != null &&
@@ -159,21 +155,6 @@ private suspend fun AwaitPointerEventScope.mouseGesture(
     }
 }
 
-/** A mouse or touch press on the jump-to-bottom chip; releasing it over the chip scrolls to the bottom. */
-private suspend fun AwaitPointerEventScope.jumpChipPress(controller: TerminalController, down: PointerInputChange) {
-    down.consume()
-    while (true) {
-        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return
-        change.consume()
-        if (!change.pressed) {
-            if (hitsJumpChip(controller, change.position)) {
-                controller.scrollToBottom()
-            }
-            return
-        }
-    }
-}
-
 private suspend fun AwaitPointerEventScope.awaitRelease(down: PointerInputChange) {
     while (true) {
         val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return
@@ -257,12 +238,6 @@ private fun tap(controller: TerminalController, focusRequester: FocusRequester, 
         controller.sendMouse(GhosttyMouseAction.PRESS, GhosttyMouseButton.LEFT, cell)
         controller.sendMouse(GhosttyMouseAction.RELEASE, GhosttyMouseButton.LEFT, cell)
     }
-}
-
-private fun hitsJumpChip(controller: TerminalController, position: Offset): Boolean {
-    if (!controller.isJumpToBottomVisible) return false
-    val distance = (position - controller.jumpToBottomChipCenter).getDistance()
-    return distance <= JumpToBottomChip.radius.value * controller.density * JumpToBottomChip.TAP_SLOP_SCALE
 }
 
 /**

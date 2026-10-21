@@ -57,8 +57,6 @@ internal fun DrawScope.drawTerminal(controller: TerminalController, handleColor:
         }
     }
     if (showHandles && controller.selectionActive) drawSelectionHandles(controller, handleColor)
-    drawScrollIndicator(controller)
-    drawJumpToBottomChip(controller)
 }
 
 private fun DrawScope.drawBackgrounds(render: GhosttyRenderState, cellWidth: Float, cellHeight: Float) {
@@ -292,45 +290,4 @@ private fun DrawScope.drawSelectionHandles(controller: TerminalController, color
     drawRect(color, Offset(end.x, end.y), Size(radius, radius))
 }
 
-private fun DrawScope.drawScrollIndicator(controller: TerminalController) {
-    val scrollbar = controller.render.scrollbar
-    val alpha = controller.scrollbarAlpha.value
-    if (scrollbar.total <= scrollbar.length || alpha <= 0f) return
-    val track = controller.contentBounds
-    val barWidth = 3.dp.toPx()
-    val right = track.right - 2.dp.toPx()
-    val top = track.top + track.height * scrollbar.offset / scrollbar.total
-    val thumbHeight = max(16.dp.toPx(), track.height * scrollbar.length / scrollbar.total)
-    drawRoundRect(
-        SCROLLBAR_COLOR.copy(alpha = SCROLLBAR_COLOR.alpha * alpha),
-        Offset(right - barWidth, top),
-        Size(barWidth, min(thumbHeight, track.bottom - top)),
-        CornerRadius(barWidth / 2),
-    )
-}
-
-/** A button that scrolls back to the bottom while the viewport is in the scrollback. */
-internal object JumpToBottomChip {
-    val radius = 18.dp
-    val centerInset = 32.dp
-    const val TAP_SLOP_SCALE = 1.5f
-}
-
-private fun DrawScope.drawJumpToBottomChip(controller: TerminalController) {
-    if (!controller.isJumpToBottomVisible) return
-    val radius = JumpToBottomChip.radius.toPx()
-    val center = controller.jumpToBottomChipCenter
-    drawCircle(JUMP_CHIP_BACKGROUND, radius, center)
-    val span = radius * 0.45f
-    val arrow = Path().apply {
-        moveTo(center.x - span, center.y - span * 0.5f)
-        lineTo(center.x, center.y + span * 0.5f)
-        lineTo(center.x + span, center.y - span * 0.5f)
-    }
-    drawPath(arrow, JUMP_CHIP_ARROW, style = Stroke(2.dp.toPx()))
-}
-
 private const val FAINT_ALPHA = 160
-private val SCROLLBAR_COLOR = Color(0xB3AAAAAA)
-private val JUMP_CHIP_BACKGROUND = Color(0xCC2A2A2E)
-private val JUMP_CHIP_ARROW = Color(0xFFE0E0E0)

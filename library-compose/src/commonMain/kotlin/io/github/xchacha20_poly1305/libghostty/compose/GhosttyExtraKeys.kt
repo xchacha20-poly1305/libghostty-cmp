@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -122,15 +123,26 @@ public object GhosttyExtraKeysDefaults {
     )
 }
 
+/**
+ * A row of keys a software keyboard lacks, sent to the terminal of [state]. While shown, its sticky Ctrl and Alt are
+ * the terminal's [GhosttyTerminalState.stickyModifiers].
+ */
 @Composable
 public fun GhosttyExtraKeysBar(
     state: GhosttyTerminalState,
     modifier: Modifier = Modifier,
+    extraKeysState: GhosttyExtraKeysState = rememberGhosttyExtraKeysState(),
     keys: List<GhosttyExtraKey> = GhosttyExtraKeysDefaults.keys,
     colors: GhosttyExtraKeysColors = GhosttyExtraKeysDefaults.colors(),
 ) {
-    val ctrlState by state.extraKeys.ctrl.collectAsState()
-    val altState by state.extraKeys.alt.collectAsState()
+    DisposableEffect(state, extraKeysState) {
+        state.stickyModifiers = extraKeysState
+        onDispose {
+            if (state.stickyModifiers === extraKeysState) state.stickyModifiers = null
+        }
+    }
+    val ctrlState by extraKeysState.ctrl.collectAsState()
+    val altState by extraKeysState.alt.collectAsState()
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -161,7 +173,7 @@ public fun GhosttyExtraKeysBar(
                     containerColor = stickyContainerColor(ctrlState, colors),
                     contentColor = stickyContentColor(ctrlState, colors),
                 ) {
-                    state.extraKeys.toggleCtrl()
+                    extraKeysState.toggleCtrl()
                 }
 
                 GhosttyExtraKey.Alt -> KeyButton(
@@ -171,7 +183,7 @@ public fun GhosttyExtraKeysBar(
                     containerColor = stickyContainerColor(altState, colors),
                     contentColor = stickyContentColor(altState, colors),
                 ) {
-                    state.extraKeys.toggleAlt()
+                    extraKeysState.toggleAlt()
                 }
 
                 GhosttyExtraKey.ArrowLeft -> ArrowKeyButton(state, colors, "◀") {
@@ -318,12 +330,13 @@ private val pasteIcon: ImageVector = ImageVector.Builder(
 ).build()
 
 /**
- * Handles presses on an extra keys button: fires [onPress] on touch down, repeats it while held
- * when [repeatable] is set, and returns focus to the terminal of [state] on release so the button
- * does not take the input target away from it. The gesture consumes the touch, so the button must not
- * also be clickable; pass an [interactionSource] to drive `Modifier.indication` from it instead.
+ * Handles presses on a key button outside the terminal, such as one of an extra keys bar: fires [onPress] on release,
+ * and when [repeatable] is set, repeatedly while held instead. A touch that a scrollable parent takes over as a drag
+ * fires nothing, so the keys can sit in a scrolling row. Every gesture returns focus to the terminal of [state] so the
+ * button does not take the input target away from it. The gesture consumes the release, so the button must not also be
+ * clickable; pass an [interactionSource] to drive `Modifier.indication` from it instead.
  */
-internal fun Modifier.ghosttyExtraKey(
+public fun Modifier.ghosttyExtraKey(
     state: GhosttyTerminalState,
     repeatable: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
@@ -334,16 +347,21 @@ internal fun Modifier.ghosttyExtraKey(
         coroutineScope {
             awaitEachGesture {
                 val down = awaitFirstDown()
-                down.consume()
                 val press = PressInteraction.Press(down.position)
-                if (interactionSource != null) this@coroutineScope.launch {
-                    interactionSource.emit(press)
+                // Like a clickable in a scrolling container, show the press only once the touch is unlikely to
+                // become a drag.
+                val pressIndication = interactionSource?.let { source ->
+                    this@coroutineScope.launch {
+                        delay(PRESS_INDICATION_DELAY)
+                        source.emit(press)
+                    }
                 }
-                currentOnPress.value()
+                var repeated = false
                 val repeatJob = if (repeatable) {
                     this@coroutineScope.launch {
                         delay(REPEAT_START_DELAY)
                         while (isActive) {
+                            repeated = true
                             currentOnPress.value()
                             delay(REPEAT_INTERVAL)
                         }
@@ -351,10 +369,20 @@ internal fun Modifier.ghosttyExtraKey(
                 } else {
                     null
                 }
+                // null when a scrollable parent consumed the move or the touch left the button
                 val up = waitForUpOrCancellation()
                 repeatJob?.cancel()
-                if (interactionSource != null) {
+                if (up != null) {
+                    up.consume()
+                    if (!repeated) currentOnPress.value()
+                }
+                if (interactionSource != null && pressIndication != null) {
                     this@coroutineScope.launch {
+                        if (pressIndication.isActive) {
+                            pressIndication.cancel()
+                            if (up == null) return@launch
+                            interactionSource.emit(press)
+                        }
                         interactionSource.emit(
                             if (up != null) {
                                 PressInteraction.Release(press)
@@ -370,5 +398,6 @@ internal fun Modifier.ghosttyExtraKey(
     }
 }
 
+private val PRESS_INDICATION_DELAY = 100.milliseconds
 private val REPEAT_START_DELAY = 400.milliseconds
 private val REPEAT_INTERVAL = 80.milliseconds

@@ -113,8 +113,7 @@ public class GhosttyRenderState {
             buffer = allocate(maxOf(buffer.capacity() * 2, requiredCapacity()))
         }
         val newScrollbar = terminal.scrollbar
-        val scrolled = newScrollbar.total != scrollbar.total || newScrollbar.offset != scrollbar.offset ||
-                newScrollbar.length != scrollbar.length
+        val scrolled = newScrollbar != scrollbar
         scrollbar = newScrollbar
         val placements = readKittyPlacements(terminal)
         val imagesChanged = placements != kittyPlacements

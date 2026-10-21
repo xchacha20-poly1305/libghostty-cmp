@@ -49,14 +49,13 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Shows [session] and sends it what the user types. Pair it with [GhosttyDialogs] for the prompts the terminal
- * raises, and optionally a [GhosttyExtraKeysBar] sharing the same [state].
+ * raises. Widgets sharing the same [state] add the rest, and an app may use its own instead: [GhosttyExtraKeysBar]
+ * below it, [GhosttyScrollIndicator] and [GhosttyJumpToBottomButton] over it.
  *
  * @param fontSize applies whenever it changes; pinch zoom moves away from it and reports through [onFontSizeChanged].
  *
- * @param contentPadding works like a lazy list's: the grid still fills the view, so rows show behind whatever covers the
- * padding, and only the ends of the scrollback keep clear of it. At rest the last row with content sits above the
- * bottom padding, and at the top of the scrollback the first row sits below the top padding. Horizontal padding
- * narrows the grid.
+ * @param contentPadding keeps rows clear of whatever covers the edges of the view, as [contentPaddingMode] describes.
+ * Horizontal padding narrows the grid in either mode.
  */
 @Composable
 public fun GhosttyTerminal(
@@ -69,6 +68,7 @@ public fun GhosttyTerminal(
     fontSize: TextUnit = 14.sp,
     focusOnAttach: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    contentPaddingMode: GhosttyContentPaddingMode = GhosttyContentPaddingMode.SCROLL_UNDER,
     onFontSizeChanged: (TextUnit) -> Unit = {},
     onFinishedSessionKey: () -> Unit = {},
 ) {
@@ -123,7 +123,7 @@ public fun GhosttyTerminal(
     }
 
     val layoutDirection = LocalLayoutDirection.current
-    LaunchedEffect(contentPadding, density, layoutDirection) {
+    LaunchedEffect(contentPadding, contentPaddingMode, density, layoutDirection) {
         with(density) {
             controller.setContentPadding(
                 TerminalController.PaddingPx(
@@ -132,6 +132,7 @@ public fun GhosttyTerminal(
                     right = contentPadding.calculateRightPadding(layoutDirection).toPx(),
                     bottom = contentPadding.calculateBottomPadding().toPx(),
                 ),
+                contentPaddingMode,
             )
         }
     }

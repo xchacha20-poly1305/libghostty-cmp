@@ -4,18 +4,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyDialogs
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyExtraKeysBar
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyJumpToBottomButton
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyScrollIndicator
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminal
 import io.github.xchacha20_poly1305.libghostty.compose.rememberGhosttyTerminalState
 import io.github.xchacha20_poly1305.libghostty.extras.GhosttyThemeStore
@@ -31,7 +37,11 @@ class MainActivity : ComponentActivity() {
                 val state = rememberGhosttyTerminalState()
                 val theme = remember { GhosttyThemeStore.loadTheme(GhosttyThemeStore.DEFAULT_DARK_THEME) }
                 Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                    GhosttyTerminal(session, Modifier.weight(1f), state = state, theme = theme)
+                    Box(Modifier.weight(1f)) {
+                        GhosttyTerminal(session, Modifier.fillMaxSize(), state = state, theme = theme)
+                        GhosttyScrollIndicator(state, Modifier.align(Alignment.CenterEnd).padding(end = 2.dp))
+                        GhosttyJumpToBottomButton(state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+                    }
                     GhosttyExtraKeysBar(state)
                 }
                 GhosttyDialogs(state)

@@ -1,7 +1,5 @@
 package io.github.xchacha20_poly1305.libghostty.compose
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -76,6 +74,7 @@ internal class TerminalController(
 
     /** The content padding in pixels; see [GhosttyTerminal]'s `contentPadding`. */
     private var padding = PaddingPx.Zero
+    private var paddingMode = GhosttyContentPaddingMode.SCROLL_UNDER
 
     /**
      * How far the grid is shifted down from the top of the view: into the top padding at the top of the scrollback,
@@ -114,9 +113,6 @@ internal class TerminalController(
 
     var magnifierCenter by mutableStateOf(Offset.Unspecified)
 
-    val scrollbarAlpha = Animatable(0f)
-    private var scrollbarFade: Job? = null
-
     var accessibilityText: String? by mutableStateOf(null)
         private set
     private var accessibilityJob: Job? = null
@@ -133,6 +129,7 @@ internal class TerminalController(
         kittyImages.clear()
         composingText = null
         render = GhosttyRenderState()
+        state.scrollbar = render.scrollbar
         overscroll = 0f
         followsBottom = true
         lastContentRow = -1
@@ -156,9 +153,10 @@ internal class TerminalController(
         relayout()
     }
 
-    fun setContentPadding(value: PaddingPx) {
-        if (value == padding) return
+    fun setContentPadding(value: PaddingPx, mode: GhosttyContentPaddingMode) {
+        if (value == padding && mode == paddingMode) return
         padding = value
+        paddingMode = mode
         relayout()
         requestFrame()
     }
@@ -166,14 +164,21 @@ internal class TerminalController(
     val cellSize: GhosttyCellSize?
         get() = glyphs?.let { GhosttyCellSize(it.cellWidth, it.cellHeight) }
 
-    /** The grid spans the whole height, since rows scroll under the vertical padding, but only the padded width. */
+    /**
+     * The grid spans the padded width. In [GhosttyContentPaddingMode.SCROLL_UNDER] it spans the whole height, since rows
+     * scroll under the vertical padding; in [GhosttyContentPaddingMode.INSET] only the padded height.
+     */
     private fun relayout(force: Boolean = false) {
         val session = session ?: return
         val size = cellSize ?: return
         val gridWidthPx = widthPx - (padding.left + padding.right).roundToInt()
-        if (gridWidthPx <= 0 || heightPx <= 0) return
+        val gridHeightPx = when (paddingMode) {
+            GhosttyContentPaddingMode.SCROLL_UNDER -> heightPx
+            GhosttyContentPaddingMode.INSET -> heightPx - (padding.top + padding.bottom).roundToInt()
+        }
+        if (gridWidthPx <= 0 || gridHeightPx <= 0) return
         val newColumns = size.columnsFor(gridWidthPx)
-        val newRows = size.rowsFor(heightPx)
+        val newRows = size.rowsFor(gridHeightPx)
         if (!force && newColumns == columns && newRows == rows) return
         columns = newColumns
         rows = newRows
@@ -219,6 +224,7 @@ internal class TerminalController(
                 return@withTerminal FrameResult.DEFERRED
             }
             val changed = render.update(terminal, session.selectionBackground, session.selectionForeground)
+            state.scrollbar = render.scrollbar
             if (changed && render.scrollbar.isAtBottom) {
                 lastContentRow = findLastContentRow()
             }
@@ -311,7 +317,7 @@ internal class TerminalController(
 
     fun sendText(text: String) {
         if (text.isEmpty()) return
-        val stickyMods = state.extraKeys.currentMods()
+        val stickyMods = stickyMods()
         if (stickyMods != 0 && text.length == 1) {
             val char = text[0]
             // ghostty's ctrlSeq (src/input/key_encode.zig) maps a one-byte
@@ -320,7 +326,7 @@ internal class TerminalController(
                 encodeKeyTap(terminal, keyForChar(char), stickyMods, char.lowercaseChar().code, text)
             }
             if (bytes != null) {
-                state.extraKeys.consumeModifiers()
+                state.stickyModifiers?.consumeModifiers()
                 send(bytes)
                 return
             }
@@ -329,15 +335,17 @@ internal class TerminalController(
     }
 
     fun sendKey(key: GhosttyKey) {
-        val stickyMods = state.extraKeys.currentMods()
+        val stickyMods = stickyMods()
         val bytes = session?.withTerminal {
             encodeKeyTap(it, key, stickyMods, 0, null)
         } ?: return
         if (stickyMods != 0) {
-            state.extraKeys.consumeModifiers()
+            state.stickyModifiers?.consumeModifiers()
         }
         send(bytes)
     }
+
+    private fun stickyMods(): Int = state.stickyModifiers?.currentMods() ?: 0
 
     private fun encodeKeyTap(
         terminal: GhosttyTerminal,
@@ -385,7 +393,7 @@ internal class TerminalController(
             return true
         }
         val stickyMods = if (action == GhosttyKeyAction.PRESS && !key.isModifier) {
-            state.extraKeys.currentMods()
+            stickyMods()
         } else {
             0
         }
@@ -393,7 +401,7 @@ internal class TerminalController(
             it.encodeKey(key, action, mods or stickyMods, text, unshiftedCodepoint, composing)
         } ?: return false
         if (stickyMods != 0) {
-            state.extraKeys.consumeModifiers()
+            state.stickyModifiers?.consumeModifiers()
         }
         send(bytes)
         return true
@@ -601,12 +609,6 @@ internal class TerminalController(
 
     // Scrolling and mouse
 
-    val isJumpToBottomVisible: Boolean
-        get() {
-            val scrollbar = render.scrollbar
-            return state.showJumpToBottom && scrollbar.total > 0 && !scrollbar.isAtBottom
-        }
-
     val isMouseTracking: Boolean
         get() = session?.withTerminal { it.isMouseTracking } ?: false
 
@@ -665,7 +667,7 @@ internal class TerminalController(
         }
         val scrollbar = terminal.scrollbar
         followsBottom = scrollbar.isAtBottom && overscroll <= overscrollRange(scrollbar).start
-        showScrollbar()
+        state.onUserScrolled()
         requestFrame()
         return (scrollbar.offset - offsetBefore).toInt()
     }
@@ -707,9 +709,11 @@ internal class TerminalController(
 
     /**
      * How far [overscroll] may go: down into the top padding at the top of the scrollback, and at the bottom up until
-     * the last row with content clears the bottom padding. When both ends are shown at once, the bottom wins.
+     * the last row with content clears the bottom padding. When both ends are shown at once, the bottom wins. In
+     * [GhosttyContentPaddingMode.INSET] the grid stays below the top padding.
      */
     private fun overscrollRange(scrollbar: GhosttyScrollbar): ClosedFloatingPointRange<Float> {
+        if (paddingMode == GhosttyContentPaddingMode.INSET) return padding.top..padding.top
         val cellHeight = glyphs?.cellHeight ?: return 0f..0f
         val top = if (scrollbar.offset == 0L) padding.top else 0f
         val bottom = if (scrollbar.isAtBottom) {
@@ -739,15 +743,6 @@ internal class TerminalController(
         return cursorRow
     }
 
-    private fun showScrollbar() {
-        scrollbarFade?.cancel()
-        scrollbarFade = scope.launch {
-            scrollbarAlpha.snapTo(1f)
-            delay(SCROLLBAR_FADE_DELAY)
-            scrollbarAlpha.animateTo(0f, tween(SCROLLBAR_FADE_MS))
-        }
-    }
-
     // Geometry
 
     /** The column under [x] in view coordinates. */
@@ -762,16 +757,6 @@ internal class TerminalController(
 
     val gridWidth: Float
         get() = ceil(columns * (glyphs?.cellWidth ?: 0f))
-
-    /** The part of the view the padding leaves to the content, in view coordinates. */
-    val contentBounds: Rect
-        get() = Rect(padding.left, padding.top, widthPx - padding.right, heightPx - padding.bottom)
-
-    val jumpToBottomChipCenter: Offset
-        get() {
-            val inset = JumpToBottomChip.centerInset.value * density
-            return Offset(contentBounds.right - inset, contentBounds.bottom - inset)
-        }
 
     fun changeFontSize(steps: Int) {
         state.fontSizeSteps(steps)
@@ -790,8 +775,6 @@ internal class TerminalController(
         val SYNC_OUTPUT_RETRY = 32.milliseconds
         const val SYNC_OUTPUT_TIMEOUT_MS = 1000L
         val ACCESSIBILITY_TEXT_DELAY = 500.milliseconds
-        val SCROLLBAR_FADE_DELAY = 800.milliseconds
-        const val SCROLLBAR_FADE_MS = 600
     }
 }
 

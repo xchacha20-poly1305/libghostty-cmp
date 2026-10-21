@@ -11,21 +11,30 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import io.github.xchacha20_poly1305.libghostty.GhosttyCellSize
 import io.github.xchacha20_poly1305.libghostty.GhosttyKey
+import io.github.xchacha20_poly1305.libghostty.GhosttyScrollbar
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 
-/** State and settings of a [GhosttyTerminal], shared with the [GhosttyExtraKeysBar] and [GhosttyDialogs]. */
+/**
+ * State and settings of a [GhosttyTerminal]. Widgets around the terminal, such as [GhosttyExtraKeysBar],
+ * [GhosttyJumpToBottomButton], [GhosttyScrollIndicator] and [GhosttyDialogs], work through this state only, so an app
+ * can replace any of them with its own.
+ */
 @Stable
 public class GhosttyTerminalState {
 
-    public val extraKeys: GhosttyExtraKeysState = GhosttyExtraKeysState()
+    /**
+     * Modifiers held outside the keyboard, added to the next key the terminal sends; [GhosttyExtraKeysBar] sets its
+     * own while it is shown.
+     */
+    public var stickyModifiers: GhosttyStickyModifiers? = null
 
     /** Vibrates on BEL. */
     public var bellHapticEnabled: Boolean by mutableStateOf(true)
 
     /** Shows the software keyboard when the terminal is tapped. */
     public var showImeOnTap: Boolean by mutableStateOf(true)
-
-    /** Shows a button that scrolls back to the bottom while the viewport is in the scrollback. */
-    public var showJumpToBottom: Boolean by mutableStateOf(true)
 
     /**
      * Makes the input method treat the terminal as a text field without suggestions, instead of a raw key target.
@@ -45,6 +54,21 @@ public class GhosttyTerminalState {
     public val cellSize: GhosttyCellSize?
         get() = controller?.cellSize
 
+    /** Where the viewport is in the scrollback, as of the last frame; empty while no session is shown. */
+    public var scrollbar: GhosttyScrollbar by mutableStateOf(GhosttyScrollbar(0, 0, 0))
+        internal set
+
+    /**
+     * Emits each time the user scrolls the scrollback (touch, wheel, Shift+Page Up/Down, or dragging a selection past
+     * an edge), but not when new output moves it.
+     */
+    public val userScrolls: SharedFlow<Unit>
+        field = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    internal fun onUserScrolled() {
+        userScrolls.tryEmit(Unit)
+    }
+
     internal var controller: TerminalController? by mutableStateOf(null)
 
     /** The font size zoom moved to; reset when the font size parameter changes. */
@@ -57,12 +81,12 @@ public class GhosttyTerminalState {
         if (next != current) zoomedFontSize = next
     }
 
-    /** Types [text] as if typed on a keyboard, with the armed extra modifiers. */
+    /** Types [text] as if typed on a keyboard, with the [stickyModifiers]. */
     public fun sendText(text: String) {
         controller?.sendText(text)
     }
 
-    /** Taps [key] with the armed extra modifiers. */
+    /** Taps [key] with the [stickyModifiers]. */
     public fun sendKey(key: GhosttyKey) {
         controller?.sendKey(key)
     }

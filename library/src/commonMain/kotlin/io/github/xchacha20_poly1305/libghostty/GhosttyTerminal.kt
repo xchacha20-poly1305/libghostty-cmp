@@ -132,6 +132,13 @@ public class GhosttyScrollbar(
 ) {
     public val isAtBottom: Boolean
         get() = offset + length >= total
+
+    override fun equals(other: Any?): Boolean =
+        other is GhosttyScrollbar && total == other.total && offset == other.offset && length == other.length
+
+    override fun hashCode(): Int = (total.hashCode() * 31 + offset.hashCode()) * 31 + length.hashCode()
+
+    override fun toString(): String = "GhosttyScrollbar(total=$total, offset=$offset, length=$length)"
 }
 
 /** ARGB pixels in rows. */

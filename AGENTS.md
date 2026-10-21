@@ -71,7 +71,9 @@ shared with `native/src/snapshot.zig`) into the grid a renderer draws.
 In `:library-compose`, `GhosttyTerminal` (composable) draws a `GhosttyRenderState` in `commonMain`
 (`TerminalController`, `TerminalDrawing`, `TerminalPointerInput`); text drawing (`GlyphPainter`) and the input method
 (`Modifier.terminalInput`) are per platform. `GhosttyTerminalState` carries settings and the prompts `GhosttyDialogs`
-shows; strings are Compose resources (`composeResources/values*`).
+shows; strings are Compose resources (`composeResources/values*`). The widgets around the terminal
+(`GhosttyExtraKeysBar`, `GhosttyScrollIndicator`, `GhosttyJumpToBottomButton`, `GhosttyDialogs`) are separate composables
+that use only `GhosttyTerminalState`'s public API, so apps can swap in their own; keep the terminal itself free of them.
 
 # Build configuration
 

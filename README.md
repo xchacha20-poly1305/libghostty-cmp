@@ -22,7 +22,13 @@ session.feedOutput(bytes, 0, count)
 
 // in Compose
 val state = rememberGhosttyTerminalState()
-GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
+Box(Modifier.fillMaxSize()) {
+    GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
+    // optional widgets; each uses only the public state, so any of them can be replaced by your own
+    GhosttyScrollIndicator(state, Modifier.align(Alignment.CenterEnd))
+    GhosttyJumpToBottomButton(state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+}
+GhosttyExtraKeysBar(state)          // keys a software keyboard lacks, with sticky Ctrl and Alt
 GhosttyDialogs(state)
 ```
 

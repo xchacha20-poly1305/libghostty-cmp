@@ -1,15 +1,19 @@
 package io.github.xchacha20_poly1305.libghostty.demo
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.pty4j.PtyProcess
@@ -17,7 +21,9 @@ import com.pty4j.PtyProcessBuilder
 import com.pty4j.WinSize
 import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyDialogs
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyJumpToBottomButton
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyProgressIndicator
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyScrollIndicator
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminal
 import io.github.xchacha20_poly1305.libghostty.compose.rememberGhosttyTerminalState
 import kotlin.concurrent.thread
@@ -31,7 +37,11 @@ fun main() = application {
             val state = rememberGhosttyTerminalState()
             Column(Modifier.fillMaxSize()) {
                 GhosttyProgressIndicator(session, Modifier.fillMaxWidth())
-                GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
+                Box(Modifier.fillMaxSize()) {
+                    GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
+                    GhosttyScrollIndicator(state, Modifier.align(Alignment.CenterEnd).padding(end = 2.dp))
+                    GhosttyJumpToBottomButton(state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+                }
             }
             GhosttyDialogs(state)
         }
