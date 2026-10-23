@@ -25,6 +25,10 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
         }
+        named("desktopTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(compose.desktop.currentOs)
+        }
     }
 }
 

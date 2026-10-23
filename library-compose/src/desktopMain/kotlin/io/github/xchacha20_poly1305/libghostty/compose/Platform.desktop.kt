@@ -58,7 +58,7 @@ private const val SHAPED_CACHE_SIZE = 256
  * `drawString` maps each codepoint to a glyph on its own, which breaks emoji ZWJ sequences, flags and combining
  * marks apart; cells holding more than one codepoint are shaped instead, and the shaped lines are cached.
  */
-private class SkiaGlyphPainter(
+internal class SkiaGlyphPainter(
     regular: Typeface,
     bold: Typeface?,
     italic: Typeface?,
