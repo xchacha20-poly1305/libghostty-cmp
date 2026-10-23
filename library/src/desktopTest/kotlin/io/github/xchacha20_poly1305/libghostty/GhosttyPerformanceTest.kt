@@ -1,5 +1,6 @@
 package io.github.xchacha20_poly1305.libghostty
 
+import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -20,8 +21,11 @@ class GhosttyPerformanceTest {
             if (System.getenv("GHOSTTY_PERF") != "1") return
 
             session.feedOutput(("x".repeat(columns) + "\r\n").repeat(rows).encodeToByteArray())
+            val pixels = Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3, 4, 5, 6))
+            session.feedOutput("\u001b[3;5H\u001b_Ga=T,f=24,s=2,v=1,i=7,q=2;$pixels\u001b\\".encodeToByteArray())
             val render = GhosttyRenderState()
             session.withTerminal { render.update(it) }
+            check(render.kittyPlacements.isNotEmpty())
 
             val unchangedSamples = measureRepeated(5_000) {
                 session.withTerminal { render.update(it) }

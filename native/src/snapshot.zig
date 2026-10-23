@@ -20,6 +20,7 @@ pub const version: i32 = 2;
 
 /// Returned instead of a row count when the snapshot could not be taken.
 pub const failed: i32 = -1;
+pub const kitty_placements_dirty_bit: i32 = 1 << 8;
 
 pub const Header = extern struct {
     version: i32 = version,
@@ -91,7 +92,10 @@ pub fn write(session: *Session, buf: []u8) i32 {
     state.update(session.alloc, &session.terminal) catch return failed;
 
     var header: Header = .{
-        .dirty = @intFromEnum(state.dirty),
+        .dirty = @intFromEnum(state.dirty) | if (session.terminal.screens.active.kitty_images.dirty)
+            kitty_placements_dirty_bit
+        else
+            0,
         .cols = state.cols,
         .rows = state.rows,
         .background = Session.argb(state.colors.background),
@@ -105,6 +109,7 @@ pub fn write(session: *Session, buf: []u8) i32 {
         .password_input = @intFromBool(state.cursor.password_input),
     };
     defer @memcpy(buf[0..@sizeOf(Header)], std.mem.asBytes(&header));
+    session.terminal.screens.active.kitty_images.dirty = false;
     if (state.dirty == .false) return 0;
 
     var writer: RowWriter = .{ .buf = buf, .offset = @sizeOf(Header), .cols = state.cols };

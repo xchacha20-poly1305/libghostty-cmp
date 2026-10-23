@@ -326,6 +326,11 @@ class GhosttyVtBridgeTest {
         val pixels = Base64.getEncoder().encodeToString(byteArrayOf(-1, 0, 0, 0, -1, 0))
         write("\u001b[3;5H\u001b_Ga=T,f=24,s=2,v=1,i=7,q=2;$pixels\u001b\\")
 
+        val snapshot = ByteBuffer.allocateDirect(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
+        GhosttyVt.nativeSnapshot(handle, snapshot, false)
+        assertTrue(snapshot.getInt(4) and (1 shl 8) != 0, "kitty placements dirty")
+        GhosttyVt.nativeSnapshot(handle, snapshot, false)
+        assertEquals(0, snapshot.getInt(4) and (1 shl 8), "kitty placements clean")
         val placements = assertNotNull(GhosttyVt.nativeKittyPlacements(handle))
         assertEquals(GhosttyVt.KITTY_PLACEMENT_LONGS, placements.size)
         assertEquals(7L, placements[0], "image id")

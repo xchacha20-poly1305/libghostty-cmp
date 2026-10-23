@@ -58,6 +58,7 @@ public class GhosttyRenderState {
 
     /** A new state has seen no rows yet, whatever the terminal already reported to an earlier renderer. */
     private var needsFullSnapshot = true
+    private var kittyPlacementsDirty = false
     private var foreground = IntArray(0)
     private var background = IntArray(0)
     private var textOffset = IntArray(0)
@@ -115,9 +116,16 @@ public class GhosttyRenderState {
         val newScrollbar = terminal.scrollbar
         val scrolled = newScrollbar != scrollbar
         scrollbar = newScrollbar
-        val placements = readKittyPlacements(terminal)
-        val imagesChanged = placements != kittyPlacements
-        kittyPlacements = placements
+        val placementsDirty = kittyPlacementsDirty
+        kittyPlacementsDirty = false
+        val imagesChanged = if (changed || scrolled || placementsDirty) {
+            val placements = readKittyPlacements(terminal)
+            val placementsChanged = placements != kittyPlacements
+            kittyPlacements = placements
+            placementsChanged
+        } else {
+            false
+        }
         return changed || scrolled || imagesChanged
     }
 
@@ -135,6 +143,7 @@ public class GhosttyRenderState {
         buffer.position(0)
         check(buffer.int == SNAPSHOT_VERSION) { "snapshot version mismatch" }
         val dirty = buffer.int
+        if (dirty and KITTY_PLACEMENTS_DIRTY_BIT != 0) kittyPlacementsDirty = true
         val snapshotColumns = buffer.int
         val snapshotRows = buffer.int
         val newBackground = buffer.int
@@ -152,7 +161,7 @@ public class GhosttyRenderState {
         buffer.int
         val newPasswordInput = buffer.int != 0
 
-        val changed = dirty != DIRTY_FALSE
+        val changed = dirty and RENDER_DIRTY_MASK != DIRTY_FALSE
                 || newCursorColumn != cursorColumn
                 || newCursorRow != cursorRow
                 || newCursorStyle != cursorStyle
@@ -274,6 +283,8 @@ public class GhosttyRenderState {
         const val ROWS_OFFSET = 12
         const val TRUNCATED_OFFSET = 52
         const val DIRTY_FALSE = 0
+        const val RENDER_DIRTY_MASK = 0xFF
+        const val KITTY_PLACEMENTS_DIRTY_BIT = 1 shl 8
         const val UNDERLINE_MASK = 0x7
         const val UNDERLINE_SHIFT = 16
         const val FLAGS_MASK = (1 shl UNDERLINE_SHIFT) - 1
