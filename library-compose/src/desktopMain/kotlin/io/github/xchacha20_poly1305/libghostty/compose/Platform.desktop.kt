@@ -14,9 +14,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.FontLoadResult
 import io.github.xchacha20_poly1305.libghostty.GhosttyAwtClipboard
 import io.github.xchacha20_poly1305.libghostty.GhosttyClipboard
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import kotlin.math.ceil
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Font
@@ -28,6 +25,9 @@ import org.jetbrains.skia.Paint
 import org.jetbrains.skia.TextLine
 import org.jetbrains.skia.Typeface
 import org.jetbrains.skia.shaper.ShapingOptions
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.math.ceil
 import org.jetbrains.skia.FontStyle as SkFontStyle
 
 internal actual fun GlyphPainter(
@@ -37,7 +37,9 @@ internal actual fun GlyphPainter(
 ): GlyphPainter {
     fun resolve(weight: FontWeight, style: FontStyle): Typeface? =
         (resolver.resolve(fontFamily, weight, style).value as? FontLoadResult)?.typeface
-    val regular = resolve(FontWeight.Normal, FontStyle.Normal) ?: FontMgr.default.matchFamilyStyle(null, SkFontStyle.NORMAL)!!
+
+    val regular =
+        resolve(FontWeight.Normal, FontStyle.Normal) ?: FontMgr.default.matchFamilyStyle(null, SkFontStyle.NORMAL)!!
     return SkiaGlyphPainter(
         regular = regular,
         bold = resolve(FontWeight.Bold, FontStyle.Normal),
@@ -66,8 +68,10 @@ private class SkiaGlyphPainter(
     private val regularFont = font(regular)
 
     // A family without a bold or italic face gets synthesized ones.
-    private val boldFont = font(bold.takeUnless { it == regular } ?: regular, synthesizeBold = bold == null || bold == regular)
-    private val italicFont = font(italic.takeUnless { it == regular } ?: regular, synthesizeItalic = italic == null || italic == regular)
+    private val boldFont =
+        font(bold.takeUnless { it == regular } ?: regular, synthesizeBold = bold == null || bold == regular)
+    private val italicFont =
+        font(italic.takeUnless { it == regular } ?: regular, synthesizeItalic = italic == null || italic == regular)
     private val boldItalicFont = font(
         boldItalic.takeUnless { it == regular } ?: regular,
         synthesizeBold = boldItalic == null || boldItalic == regular,

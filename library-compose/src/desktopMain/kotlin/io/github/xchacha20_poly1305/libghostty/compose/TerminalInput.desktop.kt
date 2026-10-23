@@ -161,6 +161,7 @@ private class TerminalInputNode(var controller: TerminalController) :
             } else {
                 return false
             }
+
             AwtKeyEvent.VK_V -> controller.paste()
             else -> return false
         }

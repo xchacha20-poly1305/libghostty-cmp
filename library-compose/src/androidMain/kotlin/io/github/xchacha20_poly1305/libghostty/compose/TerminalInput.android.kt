@@ -177,8 +177,8 @@ private class TerminalInputNode(
                 InputType.TYPE_NULL
             }
             outAttributes.imeOptions = EditorInfo.IME_ACTION_NONE or
-                EditorInfo.IME_FLAG_NO_FULLSCREEN or
-                EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                    EditorInfo.IME_FLAG_NO_FULLSCREEN or
+                    EditorInfo.IME_FLAG_NO_EXTRACT_UI
             return TerminalInputConnection(view)
         }
     }

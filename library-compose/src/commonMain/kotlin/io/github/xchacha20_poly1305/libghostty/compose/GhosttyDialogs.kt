@@ -10,7 +10,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.xchacha20_poly1305.libghostty.compose.resources.*
+import io.github.xchacha20_poly1305.libghostty.compose.resources.Res
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_cancel
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_clipboard_read_allow
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_clipboard_read_message
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_clipboard_read_title
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_copy_link
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_open_link
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_paste
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_paste_unsafe_message
+import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_paste_unsafe_title
 import org.jetbrains.compose.resources.stringResource
 
 /** Shows the prompts a [GhosttyTerminal] raises: unsafe pastes, clipboard reads and link menus. */

@@ -1,6 +1,12 @@
 package io.github.xchacha20_poly1305.libghostty.compose
 
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
 import io.github.xchacha20_poly1305.libghostty.GhosttyKey
 import io.github.xchacha20_poly1305.libghostty.GhosttyMods
 

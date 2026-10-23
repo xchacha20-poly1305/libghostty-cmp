@@ -1,5 +1,3 @@
-import java.io.File
-import javax.inject.Inject
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
@@ -21,6 +19,8 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.process.ExecOperations
 import org.gradle.work.NormalizeLineEndings
+import java.io.File
+import javax.inject.Inject
 
 /** Base for tasks that run `zig build` in the `native/` project. */
 abstract class GhosttyZigTask @Inject constructor(

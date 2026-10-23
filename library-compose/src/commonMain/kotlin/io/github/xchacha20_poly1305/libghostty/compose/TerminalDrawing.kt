@@ -31,7 +31,7 @@ internal object SelectionHandles {
         val (first, last) = controller.selectionBounds() ?: return null
         val origin = controller.gridOrigin
         return origin + Offset(first.column * glyphs.cellWidth, (first.row + 1f) * glyphs.cellHeight) to
-            origin + Offset((last.column + 1) * glyphs.cellWidth, (last.row + 1f) * glyphs.cellHeight)
+                origin + Offset((last.column + 1) * glyphs.cellWidth, (last.row + 1f) * glyphs.cellHeight)
     }
 }
 
@@ -121,6 +121,7 @@ private fun DrawScope.drawUnderline(x: Float, bottom: Float, width: Float, style
             drawRect(color, Offset(x, bottom - 3 * thickness), Size(width, thickness))
             drawRect(color, Offset(x, bottom - thickness), Size(width, thickness))
         }
+
         GhosttyCellFlags.UNDERLINE_CURLY -> {
             val amplitude = max(2f, thickness * 1.5f)
             val halfPeriod = max(2f, thickness * 2)
@@ -136,6 +137,7 @@ private fun DrawScope.drawUnderline(x: Float, bottom: Float, width: Float, style
             }
             drawPath(path, color, style = Stroke(thickness))
         }
+
         GhosttyCellFlags.UNDERLINE_DOTTED -> {
             var dotX = x
             while (dotX < x + width) {
@@ -143,6 +145,7 @@ private fun DrawScope.drawUnderline(x: Float, bottom: Float, width: Float, style
                 dotX += thickness * 3
             }
         }
+
         GhosttyCellFlags.UNDERLINE_DASHED -> {
             val dash = width / 4
             var dashX = x
@@ -151,6 +154,7 @@ private fun DrawScope.drawUnderline(x: Float, bottom: Float, width: Float, style
                 dashX += dash * 2
             }
         }
+
         else -> drawRect(color, Offset(x, bottom - thickness), Size(width, thickness))
     }
 }
@@ -178,7 +182,12 @@ private fun DrawScope.drawKittyImages(
     }
 }
 
-private fun DrawScope.drawCursor(render: GhosttyRenderState, glyphs: GlyphPainter, cellWidth: Float, cellHeight: Float) {
+private fun DrawScope.drawCursor(
+    render: GhosttyRenderState,
+    glyphs: GlyphPainter,
+    cellWidth: Float,
+    cellHeight: Float
+) {
     if (!render.cursorVisible || render.cursorColumn < 0 || render.cursorRow < 0) return
     if (render.cursorRow >= render.rows || render.cursorColumn >= render.columns) return
     var col = render.cursorColumn
@@ -200,7 +209,12 @@ private fun DrawScope.drawCursor(render: GhosttyRenderState, glyphs: GlyphPainte
     val color = Color(render.cursorColor ?: render.defaultForeground)
     when (render.cursorStyle) {
         GhosttyCursorStyle.BAR -> drawRect(color, Offset(x, top), Size(cellWidth / 4, cellHeight))
-        GhosttyCursorStyle.UNDERLINE -> drawRect(color, Offset(x, top + cellHeight * 3 / 4), Size(width, cellHeight / 4))
+        GhosttyCursorStyle.UNDERLINE -> drawRect(
+            color,
+            Offset(x, top + cellHeight * 3 / 4),
+            Size(width, cellHeight / 4)
+        )
+
         GhosttyCursorStyle.BLOCK_HOLLOW -> {
             val thickness = underlineThickness()
             drawRect(
@@ -210,6 +224,7 @@ private fun DrawScope.drawCursor(render: GhosttyRenderState, glyphs: GlyphPainte
                 style = Stroke(thickness),
             )
         }
+
         GhosttyCursorStyle.BLOCK -> {
             drawRect(color, Offset(x, top), Size(width, cellHeight))
             val length = render.textLength(col, row)

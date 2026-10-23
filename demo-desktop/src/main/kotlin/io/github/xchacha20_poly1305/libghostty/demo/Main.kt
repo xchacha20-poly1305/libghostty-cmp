@@ -51,7 +51,8 @@ fun main() = application {
 private object ShellSession {
     fun start(): GhosttyTerminalSession {
         val session = GhosttyTerminalSession()
-        val shell = System.getenv("SHELL") ?: if (System.getProperty("os.name").startsWith("Windows")) "cmd.exe" else "/bin/sh"
+        val shell =
+            System.getenv("SHELL") ?: if (System.getProperty("os.name").startsWith("Windows")) "cmd.exe" else "/bin/sh"
         val process: PtyProcess = PtyProcessBuilder(arrayOf(shell))
             .setEnvironment(System.getenv() + mapOf("TERM" to "xterm-256color", "COLORTERM" to "truecolor"))
             .setInitialColumns(session.columns.coerceAtLeast(80))

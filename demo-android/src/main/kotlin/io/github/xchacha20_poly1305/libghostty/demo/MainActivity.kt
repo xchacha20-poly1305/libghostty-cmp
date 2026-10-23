@@ -36,11 +36,18 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(session) { onDispose { session.close() } }
                 val state = rememberGhosttyTerminalState()
                 val theme = remember { GhosttyThemeStore.loadTheme(GhosttyThemeStore.DEFAULT_DARK_THEME) }
-                Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                Column(Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .imePadding()) {
                     Box(Modifier.weight(1f)) {
                         GhosttyTerminal(session, Modifier.fillMaxSize(), state = state, theme = theme)
-                        GhosttyScrollIndicator(state, Modifier.align(Alignment.CenterEnd).padding(end = 2.dp))
-                        GhosttyJumpToBottomButton(state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+                        GhosttyScrollIndicator(state, Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 2.dp))
+                        GhosttyJumpToBottomButton(state, Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp))
                     }
                     GhosttyExtraKeysBar(state)
                 }
@@ -64,12 +71,12 @@ private fun echoSession(): GhosttyTerminalSession {
     }
     session.feedOutput(
         (
-            "\u001b]2;libghostty demo\u0007" +
-                "\u001b[1;31mbold red\u001b[0m \u001b[4:3mcurly\u001b[0m \u001b[7minverse\u001b[0m \u001b[3mitalic\u001b[0m\r\n" +
-                "中文 宽字符 émoji 🎉 \u001b]8;;https://ghostty.org\u001b\\hyperlink\u001b]8;;\u001b\\\r\n" +
-                (0..15).joinToString("") { "\u001b[48;5;${it}m  " } + "\u001b[0m\r\n" +
-                "Type here; input echoes back.\r\n$ "
-            ).toByteArray(),
+                "\u001b]2;libghostty demo\u0007" +
+                        "\u001b[1;31mbold red\u001b[0m \u001b[4:3mcurly\u001b[0m \u001b[7minverse\u001b[0m \u001b[3mitalic\u001b[0m\r\n" +
+                        "中文 宽字符 émoji 🎉 \u001b]8;;https://ghostty.org\u001b\\hyperlink\u001b]8;;\u001b\\\r\n" +
+                        (0..15).joinToString("") { "\u001b[48;5;${it}m  " } + "\u001b[0m\r\n" +
+                        "Type here; input echoes back.\r\n$ "
+                ).toByteArray(),
     )
     return session
 }

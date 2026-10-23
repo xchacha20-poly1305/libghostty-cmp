@@ -2,7 +2,7 @@ package io.github.xchacha20_poly1305.libghostty
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.Base64
+import java.util.*
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

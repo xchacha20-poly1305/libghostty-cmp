@@ -1,7 +1,3 @@
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.net.URI
-import javax.inject.Inject
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -15,6 +11,10 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.net.URI
+import javax.inject.Inject
 
 abstract class GhosttyThemesTask @Inject constructor(
     private val execOperations: ExecOperations,

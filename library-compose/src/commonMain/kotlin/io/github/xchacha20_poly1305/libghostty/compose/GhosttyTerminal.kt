@@ -44,8 +44,8 @@ import io.github.xchacha20_poly1305.libghostty.compose.resources.Res
 import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_copy
 import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_paste
 import io.github.xchacha20_poly1305.libghostty.compose.resources.ghostty_select_all
-import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 /**
  * Shows [session] and sends it what the user types. Pair it with [GhosttyDialogs] for the prompts the terminal

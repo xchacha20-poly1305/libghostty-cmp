@@ -1,6 +1,11 @@
 package io.github.xchacha20_poly1305.libghostty.compose
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -11,9 +16,21 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.util.fastCoerceAtLeast
 import androidx.compose.ui.util.fastCoerceIn
-import io.github.xchacha20_poly1305.libghostty.*
+import io.github.xchacha20_poly1305.libghostty.GhosttyCellFlags
+import io.github.xchacha20_poly1305.libghostty.GhosttyCellSize
+import io.github.xchacha20_poly1305.libghostty.GhosttyClipboard
+import io.github.xchacha20_poly1305.libghostty.GhosttyKey
+import io.github.xchacha20_poly1305.libghostty.GhosttyKeyAction
+import io.github.xchacha20_poly1305.libghostty.GhosttyMods
+import io.github.xchacha20_poly1305.libghostty.GhosttyMouseAction
+import io.github.xchacha20_poly1305.libghostty.GhosttyMouseButton
+import io.github.xchacha20_poly1305.libghostty.GhosttyRenderState
+import io.github.xchacha20_poly1305.libghostty.GhosttyScrollbar
 import io.github.xchacha20_poly1305.libghostty.GhosttyTerminal
+import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalHost
+import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -135,7 +152,9 @@ internal class TerminalController(
         lastContentRow = -1
         session = newSession
         newSession?.attach(this)
-        if (newSession != null && newSession.clipboard == null) newSession.clipboard = clipboard
+        if (newSession != null && newSession.clipboard == null) {
+            newSession.clipboard = clipboard
+        }
         relayout()
         requestFrame()
     }
@@ -191,7 +210,9 @@ internal class TerminalController(
     override fun onTerminalChanged() = requestFrame()
 
     override fun onBell() {
-        if (state.bellHapticEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        if (state.bellHapticEnabled) {
+            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        }
     }
 
     override fun requestClipboardRead(respond: (approved: Boolean) -> Unit) {
@@ -715,7 +736,8 @@ internal class TerminalController(
         val session = session ?: return
         session.withTerminal { terminal ->
             val before = terminal.scrollbar
-            val target = row.coerceIn(0L, max(0L, before.total - before.length))
+            val upper = (before.total - before.length).fastCoerceAtLeast(0L)
+            val target = row.fastCoerceIn(0L, max(0L, upper))
             terminal.scroll((target - before.offset).toInt())
             val after = terminal.scrollbar
             val range = overscrollRange(after)
