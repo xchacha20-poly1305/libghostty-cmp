@@ -65,6 +65,7 @@ private class SkiaGlyphPainter(
     boldItalic: Typeface?,
     private val sizePx: Float,
 ) : GlyphPainter {
+    private val asciiStrings = arrayOfNulls<String>(128)
     private val regularFont = font(regular)
 
     // A family without a bold or italic face gets synthesized ones.
@@ -111,7 +112,7 @@ private class SkiaGlyphPainter(
         val codepoint = Character.codePointAt(text, offset, offset + length)
         val font = if (styled.getUTF32Glyph(codepoint) != 0.toShort()) styled else fallback(codepoint) ?: styled
         paint.color = color
-        val string = String(text, offset, length)
+        val string = textString(text, offset, length)
         if (Character.charCount(codepoint) == length) {
             canvas.skiaCanvas.drawString(string, x, baselineY, font, paint)
         } else {
@@ -124,6 +125,18 @@ private class SkiaGlyphPainter(
 
     private fun fallback(codepoint: Int): Font? = fallbacks.getOrPut(codepoint) {
         FontMgr.default.matchFamilyStyleCharacter(null, SkFontStyle.NORMAL, null, codepoint)?.let { font(it) }
+    }
+
+    private fun textString(text: CharArray, offset: Int, length: Int): String {
+        if (length == 1) {
+            val character = text[offset].code
+            if (character < asciiStrings.size) {
+                return asciiStrings[character] ?: text.concatToString(offset, offset + 1).also {
+                    asciiStrings[character] = it
+                }
+            }
+        }
+        return text.concatToString(offset, offset + length)
     }
 
     private fun font(typeface: Typeface, synthesizeBold: Boolean = false, synthesizeItalic: Boolean = false) =
