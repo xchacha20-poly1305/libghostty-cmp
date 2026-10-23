@@ -101,6 +101,14 @@ public class GhosttyTerminalState {
         controller?.scrollToBottom()
     }
 
+    /**
+     * Moves the viewport so it starts at [row] of the scrollback, clamped to the range [scrollbar] describes, the way
+     * dragging a scrollbar thumb does. Counts as a user scroll.
+     */
+    public fun scrollTo(row: Long) {
+        controller?.scrollTo(row)
+    }
+
     /** Gives the terminal input focus and shows the software keyboard. */
     public fun showKeyboard() {
         focusTerminal()

@@ -708,6 +708,29 @@ internal class TerminalController(
     }
 
     /**
+     * Jumps the viewport to start at [row], without the row-by-row padding steps of [scrollScrollback]: the grid rests
+     * below the top padding at the top of the scrollback and above the bottom padding at the bottom.
+     */
+    fun scrollTo(row: Long) {
+        val session = session ?: return
+        session.withTerminal { terminal ->
+            val before = terminal.scrollbar
+            val target = row.coerceIn(0L, max(0L, before.total - before.length))
+            terminal.scroll((target - before.offset).toInt())
+            val after = terminal.scrollbar
+            val range = overscrollRange(after)
+            overscroll = when {
+                after.isAtBottom -> range.start
+                after.offset == 0L -> range.endInclusive
+                else -> 0f
+            }
+            followsBottom = after.isAtBottom
+        }
+        state.onUserScrolled()
+        requestFrame()
+    }
+
+    /**
      * How far [overscroll] may go: down into the top padding at the top of the scrollback, and at the bottom up until
      * the last row with content clears the bottom padding. When both ends are shown at once, the bottom wins. In
      * [GhosttyContentPaddingMode.INSET] the grid stays below the top padding.
