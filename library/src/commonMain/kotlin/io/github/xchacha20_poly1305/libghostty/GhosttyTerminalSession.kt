@@ -61,6 +61,8 @@ public class GhosttyTerminalSession(
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val terminalAccess = Any()
+    private val outputDispatchPending = AtomicBoolean(false)
+    private val outputDispatchScheduled = AtomicBoolean(false)
 
     private var handle = GhosttyVt.nativeCreate(
         options.columns,
@@ -185,9 +187,23 @@ public class GhosttyTerminalSession(
             // arrive within a small time budget.
             sendRawInput(response)
         }
+        scheduleOutputDispatch()
+    }
+
+    private fun scheduleOutputDispatch() {
+        outputDispatchPending.set(true)
+        if (!outputDispatchScheduled.compareAndSet(false, true)) return
         mainScope.launch {
-            withHandle { drainEvents(it) }
-            host?.onTerminalChanged()
+            try {
+                do {
+                    outputDispatchPending.set(false)
+                    withHandle { drainEvents(it) }
+                    host?.onTerminalChanged()
+                } while (outputDispatchPending.get())
+            } finally {
+                outputDispatchScheduled.set(false)
+                if (outputDispatchPending.get()) scheduleOutputDispatch()
+            }
         }
     }
 
