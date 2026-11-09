@@ -1,6 +1,6 @@
 .{
     .name = .ghostty_jni,
-    .version = "0.0.0",
+    .version = "0.5.0",
     .fingerprint = 0x14355953d3f4996b,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
