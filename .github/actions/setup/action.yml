@@ -15,7 +15,7 @@ runs:
       with:
         distribution: temurin
         java-version: 17
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: 26
     - name: Use HTTPS for Kotlin browser tooling dependencies
