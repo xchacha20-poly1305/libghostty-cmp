@@ -300,8 +300,6 @@ jobs:
             *-*) prerelease=(--prerelease) ;;
           esac
           gh release create "$GITHUB_REF_NAME" \
-            library*/build/outputs/aar/*.aar \
-            library*/build/libs/*-desktop.jar \
             desktop-demo-jars/*.jar \
             web-demo-release/*.zip \
             android-demo-release/*.apk \

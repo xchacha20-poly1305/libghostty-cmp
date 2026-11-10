@@ -7,11 +7,11 @@ Multiplatform terminal, a theme catalog, and font handling.
 
 ```kotlin
 dependencies {
-    implementation("io.github.xchacha20-poly1305:libghostty:0.4.1")
+    implementation("io.github.xchacha20-poly1305:libghostty:0.5.0")
 
     // optional
-    implementation("io.github.xchacha20-poly1305:libghostty-extras:0.4.1")
-    implementation("io.github.xchacha20-poly1305:libghostty-compose:0.4.1")
+    implementation("io.github.xchacha20-poly1305:libghostty-extras:0.5.0")
+    implementation("io.github.xchacha20-poly1305:libghostty-compose:0.5.0")
 }
 ```
 
@@ -32,6 +32,18 @@ Box(Modifier.fillMaxSize()) {
 GhosttyExtraKeysBar(state)          // keys a software keyboard lacks, with sticky Ctrl and Alt
 GhosttyDialogs(state)
 ```
+
+## Platforms
+
+| Platform | Architectures | Notes |
+| --- | --- | --- |
+| Android | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | API 21+ for `libghostty` and `libghostty-extras`; API 23+ for `libghostty-compose` and the Android demo |
+| Desktop JVM | x86_64 and aarch64 on Linux, macOS, and Windows | Java 17+. Linux needs glibc 2.17 or newer. macOS 11 or newer |
+| Browser (WebAssembly) | `wasmJs` | `libghostty` and `libghostty-compose`. WebGL 2 and WasmGC: Chrome 119+, Firefox 120+, or Safari 18.2+ |
+
+`libghostty-extras` (themes, terminfo, fonts) is Android and desktop JVM only.
+
+GitHub Releases attach runnable demos: an Android APK, an offline web ZIP, and desktop uber jars for the three CI hosts (`linux-x64`, `macos-arm64`, `windows-x64`). The published JNI library includes natives for every desktop OS and architecture in the table.
 
 ## Desktop demo
 
@@ -60,9 +72,8 @@ Every push to `cmp` publishes the `-SNAPSHOT` version to
 
 ## Browser / WebAssembly
 
-The development branch adds `wasmJs` targets to **libghostty** and **libghostty-compose**.
-These targets are not part of the 0.4.1 release shown above. The extras module's filesystem,
-terminfo installation and JVM resource APIs remain Android/JVM-only.
+`libghostty` and `libghostty-compose` publish `wasmJs` artifacts. The extras module's
+filesystem, terminfo installation and JVM resource APIs remain Android/JVM-only.
 
 [Open the web demo](https://xchacha20-poly1305.github.io/libghostty-cmp/), or download the
 [offline web demo](https://xchacha20-poly1305.github.io/libghostty-cmp/demo-web-offline.zip).
