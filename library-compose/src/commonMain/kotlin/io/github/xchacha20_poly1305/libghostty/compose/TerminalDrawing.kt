@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -53,29 +54,51 @@ internal fun DrawScope.drawTerminal(controller: TerminalController, handleColor:
             drawKittyImages(controller, cellWidth, cellHeight, GhosttyImageLayer.BELOW_TEXT)
             drawText(render, glyphs, cellWidth, cellHeight)
             drawKittyImages(controller, cellWidth, cellHeight, GhosttyImageLayer.ABOVE_TEXT)
-            if (controller.cursorBlinkOn || !render.cursorBlinking) drawCursor(render, glyphs, cellWidth, cellHeight)
+            if (controller.cursorBlinkOn || !render.cursorBlinking) {
+                drawCursor(render, glyphs, cellWidth, cellHeight)
+            }
             drawComposingText(controller, glyphs, cellWidth, cellHeight)
             drawPasswordIndicator(render, cellWidth, cellHeight)
         }
     }
-    if (showHandles && controller.selectionActive) drawSelectionHandles(controller, handleColor)
+    if (showHandles && controller.selectionActive) {
+        drawSelectionHandles(controller, handleColor)
+    }
 }
 
-private fun DrawScope.drawBackgrounds(render: GhosttyRenderState, cellWidth: Float, cellHeight: Float) {
-    for (row in 0 until render.rows) {
-        val top = row * cellHeight
-        var col = 0
-        while (col < render.columns) {
-            val color = render.background(col, row)
-            val hasBackground = render.hasBackground(col, row)
-            var end = col + 1
-            while (end < render.columns && render.background(end, row) == color &&
-                render.hasBackground(end, row) == hasBackground
-            ) end++
-            if (hasBackground) {
-                drawRect(Color(color), Offset(col * cellWidth, top), Size((end - col) * cellWidth, cellHeight))
+internal fun DrawScope.drawBackgrounds(render: GhosttyRenderState, cellWidth: Float, cellHeight: Float) {
+    // Adjacent cell backgrounds must fully cover shared pixels. Antialiased edges blend each
+    // rectangle with the surface underneath and leave seams at fractional cell boundaries.
+    val paint = Paint().apply {
+        isAntiAlias = false
+    }
+    drawIntoCanvas { canvas ->
+        for (row in 0 until render.rows) {
+            val top = row * cellHeight
+            val bottom = (row + 1) * cellHeight
+            var column = 0
+            while (column < render.columns) {
+                val color = render.background(column, row)
+                val hasBackground = render.hasBackground(column, row)
+                var end = column + 1
+                while (end < render.columns
+                    && render.background(end, row) == color
+                    && render.hasBackground(end, row) == hasBackground
+                ) {
+                    end++
+                }
+                if (hasBackground) {
+                    paint.color = Color(color)
+                    canvas.drawRect(
+                        left = column * cellWidth,
+                        top = top,
+                        right = end * cellWidth,
+                        bottom = bottom,
+                        paint = paint,
+                    )
+                }
+                column = end
             }
-            col = end
         }
     }
 }
@@ -89,7 +112,9 @@ private fun DrawScope.drawText(render: GhosttyRenderState, glyphs: GlyphPainter,
             for (col in 0 until render.columns) {
                 val flags = render.flags(col, row)
                 val length = render.textLength(col, row)
-                if (flags and (GhosttyCellFlags.SPACER or GhosttyCellFlags.INVISIBLE) != 0) continue
+                if (flags and (GhosttyCellFlags.SPACER or GhosttyCellFlags.INVISIBLE) != 0) {
+                    continue
+                }
                 val color = textColor(render.foreground(col, row), flags)
                 val x = col * cellWidth
                 if (length > 0) {
@@ -99,7 +124,11 @@ private fun DrawScope.drawText(render: GhosttyRenderState, glyphs: GlyphPainter,
                         italic = flags and GhosttyCellFlags.ITALIC != 0,
                     )
                 }
-                val runWidth = if (flags and GhosttyCellFlags.WIDE != 0) cellWidth * 2 else cellWidth
+                val runWidth = if (flags and GhosttyCellFlags.WIDE != 0) {
+                    cellWidth * 2
+                } else {
+                    cellWidth
+                }
                 if (flags and GhosttyCellFlags.UNDERLINE != 0) {
                     drawUnderline(x, top + cellHeight, runWidth, render.underline(col, row), Color(color), thickness)
                 }
@@ -111,12 +140,11 @@ private fun DrawScope.drawText(render: GhosttyRenderState, glyphs: GlyphPainter,
     }
 }
 
-private fun textColor(color: Int, flags: Int): Int =
-    if (flags and GhosttyCellFlags.FAINT != 0) {
-        (color and 0x00FFFFFF) or (FAINT_ALPHA shl 24)
-    } else {
-        color
-    }
+private fun textColor(color: Int, flags: Int): Int = if (flags and GhosttyCellFlags.FAINT != 0) {
+    (color and 0x00FFFFFF) or (FAINT_ALPHA shl 24)
+} else {
+    color
+}
 
 private fun DrawScope.underlineThickness(): Float = max(1f, 1.dp.toPx())
 
