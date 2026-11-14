@@ -45,6 +45,9 @@ public class GhosttyTerminalState {
     /** Matches plain text as a URL, in addition to the hyperlinks the terminal reported. */
     public var urlDetectionEnabled: Boolean by mutableStateOf(true)
 
+    /** Underlines the hovered link while Ctrl or Command is held. Does not change link activation. */
+    public var linkHoverUnderlineEnabled: Boolean by mutableStateOf(false)
+
     public var urlPattern: Regex by mutableStateOf(Regex("""https?://\S+"""))
 
     /** The font sizes pinch zoom may reach, in sp. */

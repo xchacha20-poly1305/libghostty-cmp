@@ -33,6 +33,10 @@ GhosttyExtraKeysBar(state)          // keys a software keyboard lacks, with stic
 GhosttyDialogs(state)
 ```
 
+Set `state.linkHoverUnderlineEnabled = true` to underline the link under the mouse while Ctrl or Command is held
+(default: `false`). This applies to OSC 8 hyperlinks and detected URLs; `urlDetectionEnabled` controls plain-text
+URL detection independently. Link clicks keep their existing behavior.
+
 ## Platforms
 
 | Platform | Architectures | Notes |

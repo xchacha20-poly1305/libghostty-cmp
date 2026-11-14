@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerType
@@ -34,7 +35,30 @@ internal fun Modifier.terminalPointerInput(
     controller: TerminalController,
     focusRequester: FocusRequester,
     decay: DecayAnimationSpec<Float>,
-): Modifier = pointerInput(controller, decay) {
+): Modifier = pointerInput(controller) {
+    try {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                // Compose also sends stationary Move events during redraws. Their cached modifiers
+                // must not overwrite the more recent keyboard event.
+                if (event.type != PointerEventType.Move || event.changes.any { it.position != it.previousPosition }) {
+                    controller.linkModifierPressed = event.keyboardModifiers.isCtrlPressed || event.keyboardModifiers.isMetaPressed
+                    controller.linkShiftPressed = event.keyboardModifiers.isShiftPressed
+                }
+                controller.linkHoverSuppressed = event.changes.any { it.pressed }
+                controller.hoveredPosition = if (event.type == PointerEventType.Exit) {
+                    null
+                } else {
+                    event.changes.firstOrNull { it.type == PointerType.Mouse }?.position
+                }
+            }
+        }
+    } finally {
+        controller.hoveredPosition = null
+        controller.linkHoverSuppressed = false
+    }
+}.pointerInput(controller, decay) {
     coroutineScope {
         var fling: Job? = null
         var lastClick: Pair<Long, Offset>? = null

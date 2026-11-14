@@ -133,6 +133,8 @@ private class TerminalInputNode(
 
     override fun onPreKeyEvent(event: ComposeKeyEvent): Boolean {
         val native = event.nativeKeyEvent
+        controller.linkModifierPressed = native.isCtrlPressed || native.isMetaPressed
+        controller.linkShiftPressed = native.isShiftPressed
         // Back dismisses the selection before it reaches the activity.
         if (native.keyCode == KeyEvent.KEYCODE_BACK && controller.selectionActive) {
             if (native.action == KeyEvent.ACTION_DOWN) controller.clearSelection()

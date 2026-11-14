@@ -52,12 +52,19 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
     PointerInputModifierNode {
     private var session: Job? = null
     private var pasteListener: JsAny? = null
+    private var modifierListener: JsAny? = null
     private val request = CompositionRequest(controller, retainCommittedText = true)
     private val held = HashSet<GhosttyKey>()
     private var primaryMousePressed = false
 
     override fun onAttach() {
         controller.showSoftwareKeyboard = ::showKeyboard
+        // Compose's backing textarea batches keydown events and drops keyup events.
+        // Observe DOM modifiers directly so releasing Ctrl updates a stationary hover.
+        modifierListener = installModifierListener { ctrl, meta, shift ->
+            controller.linkModifierPressed = ctrl || meta
+            controller.linkShiftPressed = shift
+        }
     }
 
     private fun showKeyboard() {
@@ -94,6 +101,9 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
     }
 
     override fun onDetach() {
+        modifierListener?.let(::removeModifierListener)
+        modifierListener = null
+        controller.linkModifierPressed = false
         if (controller.showSoftwareKeyboard == ::showKeyboard) {
             controller.showSoftwareKeyboard = {}
         }
@@ -159,3 +169,25 @@ private external fun installPasteListener(paste: (String) -> Unit): JsAny
 
 @JsFun("(listener) => document.removeEventListener('paste', listener, true)")
 private external fun removePasteListener(listener: JsAny)
+
+
+@JsFun(
+    """(update) => {
+    const key = event => update(event.ctrlKey, event.metaKey, event.shiftKey);
+    const blur = () => update(false, false, false);
+    document.addEventListener('keydown', key, true);
+    document.addEventListener('keyup', key, true);
+    window.addEventListener('blur', blur);
+    return {key, blur};
+}"""
+)
+private external fun installModifierListener(update: (Boolean, Boolean, Boolean) -> Unit): JsAny
+
+@JsFun(
+    """(listener) => {
+    document.removeEventListener('keydown', listener.key, true);
+    document.removeEventListener('keyup', listener.key, true);
+    window.removeEventListener('blur', listener.blur);
+}"""
+)
+private external fun removeModifierListener(listener: JsAny)

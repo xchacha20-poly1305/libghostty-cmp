@@ -35,7 +35,7 @@ import io.github.xchacha20_poly1305.libghostty.compose.GhosttyJumpToBottomButton
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyProgressIndicator
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyScrollIndicator
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminal
-import io.github.xchacha20_poly1305.libghostty.compose.rememberGhosttyTerminalState
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminalState
 import kotlin.concurrent.thread
 
 fun main() {
@@ -47,24 +47,49 @@ fun main() {
 
 private fun runDemo(terminalType: String) = application {
     var generation by remember { mutableIntStateOf(0) }
-    val session = remember(generation) { ShellSession.start(terminalType) }
-    DisposableEffect(session) { onDispose { session.close() } }
+    val session = remember(generation) {
+        ShellSession.start(terminalType)
+    }
+    DisposableEffect(session) {
+        onDispose {
+            session.close()
+        }
+    }
     val title by session.title.collectAsState()
-    Window(onCloseRequest = ::exitApplication, title = title ?: "libghostty demo") {
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = title ?: "libghostty demo",
+    ) {
         MaterialTheme(colorScheme = darkColorScheme()) {
             key(session) {
-                val state = rememberGhosttyTerminalState()
+                val state = remember {
+                    GhosttyTerminalState().apply {
+                        linkHoverUnderlineEnabled = true
+                    }
+                }
                 Column(Modifier.fillMaxSize()) {
                     GhosttyProgressIndicator(session, Modifier.fillMaxWidth())
                     Box(Modifier.fillMaxSize()) {
                         GhosttyTerminal(session, Modifier.fillMaxSize(), state = state)
-                        GhosttyScrollIndicator(state, Modifier.align(Alignment.CenterEnd).padding(end = 2.dp))
-                        GhosttyJumpToBottomButton(state, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+                        GhosttyScrollIndicator(
+                            state,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 2.dp),
+                        )
+                        GhosttyJumpToBottomButton(
+                            state,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(16.dp)
+                        )
                         ExitNotification(
                             session,
                             onRestart = { generation++ },
                             onClose = ::exitApplication,
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp),
                         )
                     }
                 }
@@ -82,15 +107,29 @@ private fun ExitNotification(
     modifier: Modifier = Modifier,
 ) {
     val exitStatus = session.exitStatus.collectAsState().value ?: return
-    Surface(modifier, shape = MaterialTheme.shapes.medium, tonalElevation = 6.dp, shadowElevation = 6.dp) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 6.dp,
+        shadowElevation = 6.dp,
+    ) {
         Row(
-            Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            Modifier.padding(
+                start = 16.dp,
+                end = 8.dp,
+                top = 4.dp,
+                bottom = 4.dp,
+            ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Shell exited with status $exitStatus")
-            TextButton(onClick = onRestart) { Text("Restart") }
-            TextButton(onClick = onClose) { Text("Close") }
+            TextButton(onClick = onRestart) {
+                Text("Restart")
+            }
+            TextButton(onClick = onClose) {
+                Text("Close")
+            }
         }
     }
 }

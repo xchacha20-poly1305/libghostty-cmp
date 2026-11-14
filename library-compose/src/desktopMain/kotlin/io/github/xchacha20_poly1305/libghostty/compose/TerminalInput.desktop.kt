@@ -6,6 +6,9 @@ import androidx.compose.ui.focus.FocusEventModifierNode
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyInputModifierNode
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.InspectorInfo
@@ -65,7 +68,11 @@ private class TerminalInputNode(var controller: TerminalController) :
         }
     }
 
-    override fun onPreKeyEvent(event: KeyEvent): Boolean = false
+    override fun onPreKeyEvent(event: KeyEvent): Boolean {
+        controller.linkModifierPressed = event.isCtrlPressed || event.isMetaPressed
+        controller.linkShiftPressed = event.isShiftPressed
+        return false
+    }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val awt = event.awtEventOrNull ?: return false

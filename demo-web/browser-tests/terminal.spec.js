@@ -205,3 +205,33 @@ test('compact layout extra keys complete, recall and cancel input without losing
   await page.setViewportSize({width: 1280, height: 900});
   await expect(chromeButton(page, /^TAB$/)).toHaveCount(0);
 });
+
+
+test('Ctrl hover underlines links and releasing Ctrl restores the text', async ({page}) => {
+  await clickChrome(page, /^Clear$/);
+  await command(page, 'echo https://example.com');
+  await expect(screen(page)).toHaveAttribute('aria-label', /\nhttps:\/\/example\.com\n/);
+  const box = await screen(page).boundingBox();
+  const dimensions = (await size(page).textContent()).match(/(\d+)\s*×\s*(\d+)/);
+  const cellWidth = (box.width - 36) / Number(dimensions[1]);
+  const cellHeight = (box.height - 36) / Number(dimensions[2]);
+  // The URL is on row 1 after clearing. Capture its right half, away from the prompt cursor.
+  const clip = {
+    x: Math.ceil(box.x + 18 + 12 * cellWidth),
+    y: Math.ceil(box.y + 18 + cellHeight / 2),
+    width: Math.floor(5 * cellWidth),
+    height: Math.floor(2 * cellHeight),
+  };
+  await page.mouse.move(box.x + 18 + 5 * cellWidth, box.y + 18 + 1.5 * cellHeight);
+  const original = await page.screenshot({clip});
+  // The pointer stays still: a modifier key alone must invalidate the decoration.
+  await page.keyboard.down('Control');
+  await expect.poll(async () => (await page.screenshot({clip})).equals(original)).toBe(false);
+  await page.keyboard.up('Control');
+  await expect.poll(async () => (await page.screenshot({clip})).equals(original)).toBe(true);
+  await page.keyboard.down('Control');
+  await expect.poll(async () => (await page.screenshot({clip})).equals(original)).toBe(false);
+  await page.mouse.move(1, 1);
+  await expect.poll(async () => (await page.screenshot({clip})).equals(original)).toBe(true);
+  await page.keyboard.up('Control');
+});

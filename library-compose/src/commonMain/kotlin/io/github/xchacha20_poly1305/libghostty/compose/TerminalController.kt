@@ -291,6 +291,9 @@ internal class TerminalController(
 
     fun onFocusChanged(value: Boolean) {
         focused = value
+        if (!value) {
+            linkModifierPressed = false
+        }
         syncBlink()
     }
 
@@ -449,6 +452,9 @@ internal class TerminalController(
     }
 
     fun onWindowFocusChanged(focused: Boolean) {
+        if (!focused) {
+            linkModifierPressed = false
+        }
         session?.sendFocus(focused)
     }
 
@@ -591,39 +597,102 @@ internal class TerminalController(
 
     // Links
 
-    /** The link under a cell: an OSC 8 hyperlink, or a URL in the text when detection is enabled. */
-    fun linkAt(cell: Cell): String? = session?.withTerminal { it.hyperlinkAt(cell.column, cell.row) }
-        ?: if (state.urlDetectionEnabled) {
+    var hoveredPosition: Offset? by mutableStateOf(null)
+    var linkModifierPressed: Boolean by mutableStateOf(false)
+    var linkHoverSuppressed: Boolean by mutableStateOf(false)
+    var linkShiftPressed: Boolean by mutableStateOf(false)
+
+    internal data class Link(val uri: String, val cells: IntRange)
+
+    /** Resolve once for both activation and decoration, including the full cell range. */
+    fun linkAt(cell: Cell): String? = resolveLink(cell)?.uri
+
+    fun hoveredLink(): Link? {
+        if (!state.linkHoverUnderlineEnabled
+            || !linkModifierPressed
+            || linkHoverSuppressed
+            || (isMouseTracking && !linkShiftPressed)
+        ) {
+            return null
+        }
+        val position = hoveredPosition ?: return null
+        val glyphs = glyphs ?: return null
+        val local = position - gridOrigin
+        if (local.x < 0 || local.y < 0
+            || local.x >= render.columns * glyphs.cellWidth
+            || local.y >= render.rows * glyphs.cellHeight
+        ) {
+            return null
+        }
+        return resolveLink(cellAt(position))
+    }
+
+    internal fun resolveLink(cell: Cell): Link? {
+        if (cell.row !in 0 until render.rows
+            || cell.column !in 0 until render.columns
+        ) {
+            return null
+        }
+        val index = cell.row * render.columns + cell.column
+        val osc8 = session?.withTerminal { terminal ->
+            val uri = terminal.hyperlinkAt(cell.column, cell.row) ?: return@withTerminal null
+
+            fun uriAt(index: Int): String? {
+                return terminal.hyperlinkAt(index % render.columns, index / render.columns)
+            }
+
+            var start = index
+            var end = index
+            while (start > 0 && uriAt(start - 1) == uri) {
+                start--
+            }
+            while (end + 1 < render.rows * render.columns && uriAt(end + 1) == uri) {
+                end++
+            }
+            Link(uri, start..end)
+        }
+        return osc8 ?: if (state.urlDetectionEnabled) {
             detectUrlAt(cell)
         } else {
             null
         }
+    }
 
-    private fun detectUrlAt(cell: Cell): String? {
-        if (cell.row >= render.rows || render.columns == 0) return null
+    private fun detectUrlAt(cell: Cell): Link? {
         val chars = render.rowText(cell.row)
         val builder = StringBuilder(render.columns)
         val columnStart = IntArray(render.columns)
         for (column in 0 until render.columns) {
+            if (render.flags(column, cell.row) and GhosttyCellFlags.SPACER != 0) {
+                columnStart[column] = if (column > 0) {
+                    columnStart[column - 1]
+                } else {
+                    builder.length
+                }
+                continue
+            }
             columnStart[column] = builder.length
-            if (render.flags(column, cell.row) and GhosttyCellFlags.SPACER != 0) continue
             val length = render.textLength(column, cell.row)
             val offset = render.textOffset(column, cell.row)
             if (length == 0 || offset + length > chars.size) {
                 builder.append(' ')
             } else {
-                builder.appendRange(
-                    chars,
-                    offset,
-                    offset + length
-                )
+                builder.appendRange(chars, offset, offset + length)
             }
         }
-        val pressIndex = columnStart[cell.column.fastCoerceIn(0, render.columns - 1)]
-        return state.urlPattern.findAll(builder)
-            .firstOrNull { pressIndex in it.range }
-            ?.value
-            ?.trimEnd('.', ',', ';', ':', ')', ']', '>', '"', '\'')
+        val pressIndex = columnStart[cell.column]
+        for (match in state.urlPattern.findAll(builder)) {
+            val uri = match.value.trimEnd('.', ',', ';', ':', ')', ']', '>', '"', '\'')
+            val end = match.range.first + uri.length
+            if (pressIndex !in match.range.first until end) {
+                continue
+            }
+            val firstColumn = columnStart.indexOfFirst { it >= match.range.first }
+            val lastColumn = columnStart.indexOfLast { it < end }
+            val rowStart = cell.row * render.columns
+            return Link(uri, rowStart + firstColumn..rowStart + lastColumn)
+        }
+        return null
     }
 
     fun showLinkMenu(url: String) {

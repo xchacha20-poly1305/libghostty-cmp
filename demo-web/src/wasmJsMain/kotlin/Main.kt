@@ -95,7 +95,9 @@ private suspend fun loadRuntime(): DemoRuntime {
         }
         runtime = DemoRuntime(
             terminal = terminal,
-            state = GhosttyTerminalState(),
+            state = GhosttyTerminalState().apply {
+                linkHoverUnderlineEnabled = true
+            },
             fontFamily = family,
             fontResolver = resolver,
             latinFont = latin,
@@ -108,7 +110,9 @@ private suspend fun loadRuntime(): DemoRuntime {
         consoleError(error.message ?: error.toString())
         DemoRuntime(
             terminal = null,
-            state = GhosttyTerminalState(),
+            state = GhosttyTerminalState().apply {
+                linkHoverUnderlineEnabled = true
+            },
             fontFamily = FontFamily.Monospace,
             error = error.message ?: error.toString(),
         )

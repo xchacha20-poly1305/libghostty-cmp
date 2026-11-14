@@ -52,7 +52,7 @@ internal fun DrawScope.drawTerminal(controller: TerminalController, handleColor:
             drawKittyImages(controller, cellWidth, cellHeight, GhosttyImageLayer.BELOW_BACKGROUND)
             drawBackgrounds(render, cellWidth, cellHeight)
             drawKittyImages(controller, cellWidth, cellHeight, GhosttyImageLayer.BELOW_TEXT)
-            drawText(render, glyphs, cellWidth, cellHeight)
+            drawText(render, glyphs, cellWidth, cellHeight, controller.hoveredLink()?.cells)
             drawKittyImages(controller, cellWidth, cellHeight, GhosttyImageLayer.ABOVE_TEXT)
             if (controller.cursorBlinkOn || !render.cursorBlinking) {
                 drawCursor(render, glyphs, cellWidth, cellHeight)
@@ -103,7 +103,13 @@ internal fun DrawScope.drawBackgrounds(render: GhosttyRenderState, cellWidth: Fl
     }
 }
 
-private fun DrawScope.drawText(render: GhosttyRenderState, glyphs: GlyphPainter, cellWidth: Float, cellHeight: Float) {
+private fun DrawScope.drawText(
+    render: GhosttyRenderState,
+    glyphs: GlyphPainter,
+    cellWidth: Float,
+    cellHeight: Float,
+    linkCells: IntRange?,
+) {
     val thickness = underlineThickness()
     drawIntoCanvas { canvas ->
         for (row in 0 until render.rows) {
@@ -129,8 +135,9 @@ private fun DrawScope.drawText(render: GhosttyRenderState, glyphs: GlyphPainter,
                 } else {
                     cellWidth
                 }
-                if (flags and GhosttyCellFlags.UNDERLINE != 0) {
-                    drawUnderline(x, top + cellHeight, runWidth, render.underline(col, row), Color(color), thickness)
+                val underline = linkUnderline(render.underline(col, row), linkCells?.contains(row * render.columns + col) == true)
+                if (flags and GhosttyCellFlags.UNDERLINE != 0 || underline != 0) {
+                    drawUnderline(x, top + cellHeight, runWidth, underline, Color(color), thickness)
                 }
                 if (flags and GhosttyCellFlags.STRIKETHROUGH != 0) {
                     drawRect(Color(color), Offset(x, top + cellHeight / 2 - thickness / 2), Size(runWidth, thickness))
@@ -339,3 +346,14 @@ private fun DrawScope.drawSelectionHandles(controller: TerminalController, color
 }
 
 private const val FAINT_ALPHA = 160
+
+/** Apply hover decoration without changing the terminal's stored attributes. */
+internal fun linkUnderline(original: Int, hovered: Boolean): Int = if (hovered) {
+    if (original == GhosttyCellFlags.UNDERLINE_SINGLE) {
+        GhosttyCellFlags.UNDERLINE_DOUBLE
+    } else {
+        GhosttyCellFlags.UNDERLINE_SINGLE
+    }
+} else {
+    original
+}
