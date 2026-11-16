@@ -104,9 +104,9 @@ script data. Keep its loader-contract assertions. Never replace the offline cont
 CJK and emoji fonts may be fetched from Google Fonts and jsDelivr when online; the bundled Latin face is local.
 The two offline outputs are also the Pages subpages. `:demo-web:preparePages` assembles
 `build/pages` with a manual-choice homepage, `js/` and `wasm/`. Pages has no downloads or ZIP files.
-Release ZIPs are `demo-web-js-<version>.zip` and `demo-web-wasm-<version>.zip`. Do not install or run browsers in GitHub Actions.
+Release ZIPs are `demo-web-js-<version>.zip` and `demo-web-wasm-<version>.zip`.
 The web demo chrome is Compose Multiplatform (language: browser locale, Chinese or English;
-appearance: system / light / dark). Browser tests run locally in demo-web/browser-tests; run npm ci,
+appearance: system / light / dark). Browser tests run locally and in `.github/workflows/web.yml` in demo-web/browser-tests; run npm ci,
 playwright install, then npm test after running `:demo-web:offlineZip :demo-web:preparePages`. The Playwright matrix covers both JS and Wasm targets; preserve reports, screenshots and failure traces.
 Check keyboards, IME, clear-button
 focus, completion, Unicode/emoji, paste and resizing in Chromium, Firefox and WebKit.

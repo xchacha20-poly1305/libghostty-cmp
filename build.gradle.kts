@@ -34,6 +34,7 @@ subprojects {
     plugins.withId("org.jetbrains.kotlin.multiplatform") {
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension> {
             explicitApi()
+            compilerOptions.freeCompilerArgs.add("-Xexpect-actual-classes")
             targets.withType<org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget>().configureEach {
                 compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
             }
