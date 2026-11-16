@@ -43,11 +43,12 @@ URL detection independently. Link clicks keep their existing behavior.
 | --- | --- | --- |
 | Android | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | API 21+ for `libghostty` and `libghostty-extras`; API 23+ for `libghostty-compose` and the Android demo |
 | Desktop JVM | x86_64 and aarch64 on Linux, macOS, and Windows | Java 17+. Linux needs glibc 2.17 or newer. macOS 11 or newer |
-| Browser (WebAssembly) | `wasmJs` | `libghostty` and `libghostty-compose`. WebGL 2 and WasmGC: Chrome 119+, Firefox 120+, or Safari 18.2+ |
+| Browser (Kotlin/Wasm) | `wasmJs` | `libghostty` and `libghostty-compose`. WebGL 2 and WasmGC: Chrome 119+, Firefox 120+, or Safari 18.2+ |
+| Browser (Kotlin/JS) | `js` | `libghostty` and `libghostty-compose`. WebGL 2 and WebAssembly for Ghostty/Skiko; the Kotlin application compiles to JavaScript |
 
 `libghostty-extras` (themes, terminfo, fonts) is Android and desktop JVM only.
 
-GitHub Releases attach runnable demos: an Android APK, an offline web ZIP, and desktop uber jars for the three CI hosts (`linux-x64`, `macos-arm64`, `windows-x64`). The published JNI library includes natives for every desktop OS and architecture in the table.
+GitHub Releases attach runnable demos: an Android APK, separate Kotlin/JS and Kotlin/Wasm offline web ZIPs, and desktop uber jars for the three CI hosts (`linux-x64`, `macos-arm64`, `windows-x64`). The published JNI library includes natives for every desktop OS and architecture in the table.
 
 ## Desktop demo
 
@@ -74,13 +75,15 @@ To run from source:
 Every push to `cmp` publishes the `-SNAPSHOT` version to
 `https://central.sonatype.com/repository/maven-snapshots/`.
 
-## Browser / WebAssembly
+## Browser / Kotlin JS and Wasm
 
-`libghostty` and `libghostty-compose` publish `wasmJs` artifacts. The extras module's
+`libghostty` and `libghostty-compose` publish `js` and `wasmJs` artifacts. The extras module's
 filesystem, terminfo installation and JVM resource APIs remain Android/JVM-only.
 
-[Open the web demo](https://xchacha20-poly1305.github.io/libghostty-cmp/), or download the
-[offline web demo](https://xchacha20-poly1305.github.io/libghostty-cmp/demo-web-offline.zip).
+[Open the demo selection page](https://xchacha20-poly1305.github.io/libghostty-cmp/) and choose
+[Kotlin/JS](https://xchacha20-poly1305.github.io/libghostty-cmp/js/) or
+[Kotlin/Wasm](https://xchacha20-poly1305.github.io/libghostty-cmp/wasm/).
+The two offline ZIPs are available from [GitHub Releases](https://github.com/xchacha20-poly1305/libghostty-cmp/releases).
 Unzip the entire directory and open `index.html` directly. No local server, Python or Java
 is needed. The terminal runs without a network connection; CJK and emoji fonts download
 from Google Fonts and jsDelivr when the browser is online. The chrome is Compose Multiplatform. Language defaults
@@ -112,7 +115,7 @@ val session = GhosttyTerminalSession()
 ```
 
 Alternatively, `GhosttyWebAssembly.initialize(bytes)` accepts cached/embedded binary bytes.
-The `libghostty-wasm-js` Maven publication includes the matching binary with classifier
+The `libghostty-js` and `libghostty-wasm-js` Maven publications include the matching binary with classifier
 `ghostty-vt` and extension `wasm`. Bundle that binary with the library version you use; host
 resource loading is application-controlled. In this repository, the `ghosttyWasmBinary` Gradle
 configuration exposes it to the demo without depending on task names or build-directory paths.
@@ -126,7 +129,7 @@ paste events are separate from program clipboard access. Clipboard APIs may requ
 browser paste events work without an asynchronous clipboard read. `GhosttyClipboard.readText(callback)`
 also lets hosts complete explicit paste requests asynchronously; synchronous hosts keep their existing behavior.
 
-The demo requires WebGL 2 and WasmGC (Chrome 119+, Firefox 120+, or Safari 18.2+). Automated browser checks cover
+Both demos require WebGL 2 and WebAssembly for Ghostty and Skiko. The Kotlin/Wasm application additionally requires WasmGC (Chrome 119+, Firefox 120+, or Safari 18.2+). Automated browser checks cover
 Chromium, Firefox and WebKit; real mobile keyboards and Safari on Apple hardware need manual
 validation. The demo bundles a Latin subset of Noto Sans Mono CJK SC (OFL). CJK and emoji faces
 are fetched at runtime from Google Fonts and jsDelivr; chrome text also uses Compose Multiplatform's
@@ -137,17 +140,29 @@ its own Wasm and Latin face locally and allows font CDN requests.
 Build from source (Node.js 26 and Python 3 are build tools only):
 
 ```sh
-./gradlew :demo-web:wasmJsBrowserDevelopmentRun       # local development server
-./gradlew :demo-web:offlineZip :demo-web:shellTest   # production package and shell tests
+./gradlew :demo-web:jsBrowserDevelopmentRun          # Kotlin/JS development server
+./gradlew :demo-web:wasmJsBrowserDevelopmentRun      # Kotlin/Wasm development server
+./gradlew :demo-web:offlineZip :demo-web:preparePages # both ZIPs and Pages
+./gradlew :demo-shared:desktopTest                   # simulated shell tests
 cd demo-web/browser-tests
 npm ci
 npx playwright install --with-deps chromium firefox webkit
 npm test                                            # opens file://; CJK/emoji fonts may be fetched
 ```
 
-The ZIP is written to `demo-web/build/distributions/`. GitHub Pages is deployed from `cmp`
-from the production offline build. Browser checks run locally; Actions only build and deploy the demo. Future `v*` releases automatically attach a versioned
-web ZIP alongside the desktop demos. No new version or release is needed to update Pages.
+The ZIPs are written to `demo-web/build/distributions/` as `demo-web-js-<version>.zip` and
+`demo-web-wasm-<version>.zip`. Their unpacked contents are in `demo-web/build/offline/js/`
+and `demo-web/build/offline/wasm/`. Each ZIP opens independently through `file://`.
+GitHub Pages is assembled in `demo-web/build/pages/` and deployed from `cmp`, with a selection
+homepage and `js/` and `wasm/` subpages. Pages contains no ZIPs or download links.
+Browser checks run locally against both targets in Chromium, Firefox and WebKit; reports,
+screenshots and failure traces are saved under `demo-web/browser-tests/`. Each run extracts
+the actual ZIPs into `demo-web/build/browser-test-packages/` and records their SHA-256 hashes.
+For packages built with a version override, set `GHOSTTY_DEMO_VERSION` to the same version.
+For local HTTP checks under a repository prefix, serve `demo-web/build/` and set
+`GHOSTTY_PAGES_URL=http://localhost:<port>/pages/index.html` when running `npm test`.
+Actions only build and deploy the demos. Future `v*` releases automatically attach both
+versioned web ZIPs alongside the desktop demos. No new release is needed to update Pages.
 
 ## License
 

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -40,12 +41,21 @@ kotlin {
         }
     }
     jvm("desktop")
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    js {
+        browser()
+    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     applyDefaultHierarchyTemplate {
         common {
+            group("web") {
+                withJs()
+                withWasmJs()
+            }
             group("jvmShared") {
                 withJvm()
                 // AGP's KMP Android library target is not the legacy KotlinAndroidTarget.
@@ -54,13 +64,20 @@ kotlin {
         }
     }
     sourceSets {
+        named("webMain").dependencies {
+            implementation(libs.kotlinx.browser)
+        }
         commonMain {
             kotlin.srcDir(ghosttyNative.kotlin.flatMap { it.outputDir })
             dependencies {
                 api(libs.kotlinx.coroutines.core)
             }
         }
-        wasmJsMain { resources.srcDir(ghosttyNative.wasm.flatMap { it.outputDir }) }
+        named("webMain") {
+            resources.srcDir(ghosttyNative.wasm.flatMap {
+                it.outputDir
+            })
+        }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
         }
@@ -104,7 +121,7 @@ artifacts.add(ghosttyWasmBinary.name, ghosttyNative.wasm.flatMap { it.outputDir.
     builtBy(ghosttyNative.wasm)
 }
 publishing {
-    publications.withType<MavenPublication>().matching { it.name == "wasmJs" }.configureEach {
+    publications.withType<MavenPublication>().matching { it.name == "wasmJs" || it.name == "js" }.configureEach {
         artifact(ghosttyNative.wasm.flatMap { it.outputDir.file("ghostty-vt.wasm") }) {
             classifier = "ghostty-vt"
             extension = "wasm"

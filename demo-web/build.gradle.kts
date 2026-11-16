@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
@@ -14,21 +17,37 @@ val copyGhosttyWasm = tasks.register<Sync>("copyGhosttyWasm") {
 }
 
 kotlin {
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    js {
+        browser()
+        binaries.executable()
+    }
+    @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
         binaries.executable()
     }
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    applyDefaultHierarchyTemplate {
+        common {
+            group("web") {
+                withJs()
+                withWasmJs()
+            }
+        }
+    }
     sourceSets {
+        named("webMain").dependencies {
+            implementation(libs.kotlinx.browser)
+        }
         commonMain.dependencies {
             implementation(project(":demo-shared"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.components.resources)
         }
-        wasmJsMain {
+        named("webMain") {
             resources.srcDir(copyGhosttyWasm)
         }
-        wasmJsMain.dependencies {
+        named("webMain").dependencies {
             implementation(project(":library-compose"))
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -41,23 +60,58 @@ compose.resources {
     packageOfResClass = "io.github.xchacha20_poly1305.libghostty.demo.resources"
 }
 
-val offlineDirectory = layout.buildDirectory.dir("offline")
-val packageOffline = tasks.register<Exec>("packageOffline") {
-    dependsOn("wasmJsBrowserDistribution")
-    val distribution = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
-    inputs.dir(distribution)
-    inputs.files("scripts/package-offline.py", "scripts/offline-runtime.js")
-    inputs.file(layout.buildDirectory.file("compose/skiko-runtime-processed-wasmjs/skiko.wasm"))
-    outputs.dir(offlineDirectory)
-    workingDir(rootProject.projectDir)
-    // Script and Skiko paths are explicit so this task works from any invocation directory.
-    commandLine("python3", project.file("scripts/package-offline.py").absolutePath,
-        distribution.get().asFile.absolutePath, offlineDirectory.get().asFile.absolutePath,
-        "--skiko", layout.buildDirectory.file("compose/skiko-runtime-processed-wasmjs/skiko.wasm").get().asFile.absolutePath)
+val offlinePackages = listOf("js" to "js", "wasm" to "wasmJs").associate { (name, target) ->
+    val title = name.replaceFirstChar { it.uppercase() }
+    val directory = layout.buildDirectory.dir("offline/$name")
+    val skiko = layout.buildDirectory.file("compose/skiko-for-web-runtime/skiko.wasm")
+    val pack = tasks.register<Exec>("package${title}Offline") {
+        dependsOn("${target}BrowserDistribution")
+        val distribution = layout.buildDirectory.dir("dist/$target/productionExecutable")
+        inputs.dir(distribution)
+        inputs.files("scripts/package-offline.py", "scripts/offline-runtime.js")
+        inputs.file(skiko)
+        inputs.property("target", name)
+        outputs.dir(directory)
+        workingDir(rootProject.projectDir)
+        commandLine(
+            "python3", project.file("scripts/package-offline.py").absolutePath,
+            distribution.get().asFile.absolutePath, directory.get().asFile.absolutePath,
+            "--skiko", skiko.get().asFile.absolutePath,
+            "--target", name,
+        )
+    }
+    val zip = tasks.register<Zip>("${name}OfflineZip") {
+        dependsOn(pack)
+        from(directory)
+        archiveFileName.set(providers.gradleProperty("VERSION_NAME").map {
+            "demo-web-$name-$it.zip"
+        })
+        destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    }
+    name to (pack to zip)
 }
-val offlineZip = tasks.register<Zip>("offlineZip") {
-    dependsOn(packageOffline)
-    from(offlineDirectory)
-    archiveFileName.set(providers.gradleProperty("VERSION_NAME").map { "demo-web-$it.zip" })
-    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+
+tasks.register("offlineZip") {
+    group = "distribution"
+    description = "Build both standalone Kotlin/JS and Kotlin/Wasm offline ZIPs."
+    dependsOn(offlinePackages.values.map { it.second })
+}
+
+tasks.register<Sync>("preparePages") {
+    dependsOn(offlinePackages.values.map { it.first })
+    from("src/pages")
+    offlinePackages.forEach { (name, tasks) ->
+        from(tasks.first) {
+            into(name)
+        }
+    }
+    // Navigation belongs to Pages; standalone Release ZIPs have their own root index.html.
+    eachFile {
+        if (path == "js/index.html" || path == "wasm/index.html") {
+            filter { line ->
+                line.replace("<html lang=\"en\"", "<html lang=\"en\" data-pages-home=\"true\"")
+            }
+        }
+    }
+    into(layout.buildDirectory.dir("pages"))
 }

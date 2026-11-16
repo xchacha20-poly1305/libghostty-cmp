@@ -1,7 +1,7 @@
 # Overview
 
 Kotlin Multiplatform bindings for libghostty-vt (the terminal emulation core of Ghostty) for Android, the desktop
-JVM (Linux, macOS, Windows), and browser WebAssembly, published to Maven Central as
+JVM (Linux, macOS, Windows), and browser JavaScript/WebAssembly, published to Maven Central as
 `io.github.xchacha20-poly1305:libghostty[-extras|-compose]`. Kotlin package: `io.github.xchacha20_poly1305.libghostty`.
 All library modules use `explicitApi()`.
 
@@ -32,7 +32,7 @@ Modules (`settings.gradle.kts`): `:library` (core), `:library-extras` (themes, t
 (Compose Multiplatform terminal, minSdk 23; others minSdk 21), plus the unpublished `:demo-desktop`, `:demo-android`
 and `:shrink-check`.
 Each library module has `android` (AGP's KMP plugin) and `jvm("desktop")`; core and Compose also have
-`wasmJs`. JVM utilities belong in jvmSharedMain or platform source sets, never commonMain.
+`js` and `wasmJs`. JVM utilities belong in jvmSharedMain or platform source sets, never commonMain.
 
 **Native pipeline (the non-obvious part).** The JNI library is written in Zig (`native/`) and built by `buildSrc`
 plugins before the Kotlin compile:
@@ -90,20 +90,23 @@ that use only `GhosttyTerminalState`'s public API, so apps can swap in their own
 
 # Browser target
 
-`:library` and `:library-compose` also target `wasmJs`. `jvmSharedMain` holds JNI, direct ByteBuffer
+`:library` and `:library-compose` target browser `js` and `wasmJs`. `webMain` shares browser logic using `kotlinx-browser` APIs for DOM, fetch, clipboard and events;
+keep raw JavaScript limited to the Wasm backend ABI in `jsMain`/`wasmJsMain`. `jvmSharedMain` holds JNI, direct ByteBuffer
 storage and JVM synchronization; `skiaMain` shares text shaping, glyph fallback and IME state between
-web and desktop. Keep Java imports out of commonMain. The browser ABI (`native/src/wasm.zig`) shares
+JS/Wasm browsers and desktop. Keep Java imports out of commonMain. The browser ABI (`native/src/wasm.zig`) shares
 Session and snapshot logic with JNI; Session callbacks carry host-neutral contexts, never JNI types.
 `ghosttyWasm` participates in the prebuilt export. Browser apps must await GhosttyWebAssembly.load()
-before constructing a session. The binary is published with classifier ghostty-vt / extension wasm.
+before constructing a session. Both core browser publications attach the binary with classifier ghostty-vt / extension wasm.
 
 `:demo-web:offlineZip` builds a static package that must open directly through file:// without a local server.
 Webpack adapts Skiko's loader before minification; the packager converts runtime assets into classic
 script data. Keep its loader-contract assertions. Never replace the offline contract with a local server.
 CJK and emoji fonts may be fetched from Google Fonts and jsDelivr when online; the bundled Latin face is local.
-The offline output is also the Pages site. Do not install or run browsers in GitHub Actions.
+The two offline outputs are also the Pages subpages. `:demo-web:preparePages` assembles
+`build/pages` with a manual-choice homepage, `js/` and `wasm/`. Pages has no downloads or ZIP files.
+Release ZIPs are `demo-web-js-<version>.zip` and `demo-web-wasm-<version>.zip`. Do not install or run browsers in GitHub Actions.
 The web demo chrome is Compose Multiplatform (language: browser locale, Chinese or English;
-appearance: system / light / dark). The web demo chrome is Compose Multiplatform (language: browser locale, Chinese or English;
 appearance: system / light / dark). Browser tests run locally in demo-web/browser-tests; run npm ci,
-playwright install, then npm test after producing the offline package. Check keyboards, IME, clear-button
+playwright install, then npm test after running `:demo-web:offlineZip :demo-web:preparePages`. The Playwright matrix covers both JS and Wasm targets; preserve reports, screenshots and failure traces.
+Check keyboards, IME, clear-button
 focus, completion, Unicode/emoji, paste and resizing in Chromium, Firefox and WebKit.

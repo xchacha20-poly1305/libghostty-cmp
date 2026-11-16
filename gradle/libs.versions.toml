@@ -4,6 +4,7 @@ kotlin = "2.4.21"
 mavenPublish = "0.37.0"
 ndk = "30.0.16248370"
 coroutines = "1.11.0"
+kotlinxBrowser = "0.5.0"
 composeMultiplatform = "1.12.2"
 # The Material 3 release Compose Multiplatform 1.12 is built against.
 composeMaterial3 = "1.12.0-alpha03"
@@ -15,6 +16,7 @@ androidxTestExtJunit = "1.3.0"
 r8 = "9.5.29"
 
 [libraries]
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
-
 package io.github.xchacha20_poly1305.libghostty
 
 // Browser sessions run on the browser event loop. No Kotlin threads share the terminal.
@@ -15,8 +13,14 @@ internal actual fun fileUriPath(raw: String): String? {
     return decodeUriPath(path)
 }
 
-@JsFun("(text) => { try { return decodeURIComponent(text); } catch (_) { return text; } }")
-private external fun decodeUriPath(text: String): String
+
+private external fun decodeURIComponent(text: String): String
+
+private fun decodeUriPath(text: String): String = try {
+    decodeURIComponent(text)
+} catch (_: Throwable) {
+    text
+}
 
 internal actual fun logError(tag: String, message: String, error: Throwable?) {
     println("$tag: $message ${error?.message.orEmpty()}")

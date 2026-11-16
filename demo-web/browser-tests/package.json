@@ -2,6 +2,11 @@
   "name": "ghostty-web-browser-tests",
   "private": true,
   "type": "module",
-  "scripts": { "test": "playwright test" },
-  "devDependencies": { "@playwright/test": "1.65.0" }
+  "scripts": {
+    "pretest": "python3 prepare-artifacts.py",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
 }

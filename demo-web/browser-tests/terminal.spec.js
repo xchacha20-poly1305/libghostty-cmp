@@ -1,8 +1,6 @@
 import {test, expect} from '@playwright/test';
-import {resolve} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {demoUrl} from './urls.js';
 
-const pageUrl = process.env.GHOSTTY_DEMO_URL || pathToFileURL(resolve(import.meta.dirname, '../build/offline/index.html')).href;
 const screen = page => page.locator('#demo-terminal');
 const size = page => page.getByText(/\d+\s*×\s*\d+/);
 
@@ -31,7 +29,7 @@ async function clickChrome(page, name) {
   await chromeButton(page, name).dispatchEvent('click');
 }
 
-test.beforeEach(async ({page}) => {
+test.beforeEach(async ({page}, testInfo) => {
   const remote = [];
   page.on('request', request => { if (/^https?:/.test(request.url())) remote.push(request.url()); });
   page.on('pageerror', error => { throw error; });
@@ -42,7 +40,8 @@ test.beforeEach(async ({page}) => {
     } catch (error) {}
   });
   // file:// still runs without a local server. CJK/emoji webfonts may be fetched from font CDNs.
-  await page.goto(pageUrl);
+  await page.goto(demoUrl(testInfo));
+  await expect(page.locator('html')).toHaveAttribute('data-kotlin-target', testInfo.project.metadata.target);
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await expect(screen(page)).toHaveAttribute('aria-label', /Type help/);
   await page.bringToFront();
@@ -101,8 +100,11 @@ test('composition commits once and resize preserves terminal content', async ({p
 
 test('paste events send text through terminal paste encoding', async ({page}) => {
   await page.evaluate(() => {
-    const event = new Event('paste', {bubbles: true, cancelable: true, composed: true});
-    Object.defineProperty(event, 'clipboardData', {value: {getData: () => 'echo pasted'}});
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', 'echo pasted');
+    const event = new ClipboardEvent('paste', {clipboardData, bubbles: true, cancelable: true, composed: true});
+    // Firefox discards the constructor's data on synthetic clipboard events.
+    Object.defineProperty(event, 'clipboardData', {value: clipboardData});
     document.dispatchEvent(event);
   });
   await page.keyboard.press('Enter');
@@ -151,6 +153,30 @@ for (const waitForApproval of [false, true]) {
   });
 }
 
+test('clipboard unavailability and denied access recover before a successful paste', async ({page}) => {
+  for (const mode of ['unavailable', 'unsupported', 'denied']) {
+    await page.evaluate(mode => {
+      const clipboard = mode === 'unavailable' ? undefined
+        : mode === 'unsupported' ? {}
+        : {readText: () => Promise.reject(new DOMException('Denied', 'NotAllowedError'))};
+      Object.defineProperty(navigator, 'clipboard', {configurable: true, value: clipboard});
+    }, mode);
+    await clickChrome(page, /^Paste$/);
+    await expect(page.locator('textarea')).toBeFocused();
+    await command(page, `echo recovered-${mode}`);
+    await expect(screen(page)).toHaveAttribute('aria-label', new RegExp(`\\nrecovered-${mode}\\n`));
+  }
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+      readText: () => Promise.resolve('echo clipboard recovered')
+    }});
+  });
+  await clickChrome(page, /^Paste$/);
+  await expect(screen(page)).toHaveAttribute('aria-label', /echo clipboard recovered$/);
+  await page.keyboard.press('Enter');
+  await expect(screen(page)).toHaveAttribute('aria-label', /\nclipboard recovered\n/);
+});
+
 test('browser paste shortcut does not also read the clipboard API', async ({page}) => {
   await page.evaluate(() => {
     globalThis.clipboardReadCount = 0;
@@ -160,8 +186,11 @@ test('browser paste shortcut does not also read the clipboard API', async ({page
   });
   await page.locator('textarea').evaluate(editor => {
     editor.dispatchEvent(new KeyboardEvent('keydown', {key: 'V', code: 'KeyV', ctrlKey: true, shiftKey: true, bubbles: true, composed: true}));
-    const event = new Event('paste', {bubbles: true, cancelable: true, composed: true});
-    Object.defineProperty(event, 'clipboardData', {value: {getData: () => 'echo once'}});
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', 'echo once');
+    const event = new ClipboardEvent('paste', {clipboardData, bubbles: true, cancelable: true, composed: true});
+    // Firefox discards the constructor's data on synthetic clipboard events.
+    Object.defineProperty(event, 'clipboardData', {value: clipboardData});
     editor.dispatchEvent(event);
     editor.dispatchEvent(new KeyboardEvent('keyup', {key: 'V', code: 'KeyV', ctrlKey: true, shiftKey: true, bubbles: true, composed: true}));
   });

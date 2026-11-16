@@ -1,4 +1,5 @@
 <resources>
+    <string name="home">Home</string>
     <string name="document_title">Terminal demo · Ghostty</string>
     <string name="app_title">Terminal demo</string>
     <string name="source">Source</string>

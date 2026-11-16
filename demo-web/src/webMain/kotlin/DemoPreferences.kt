@@ -1,5 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class, InternalResourceApi::class)
 @file:Suppress("ERROR_SUPPRESSION", "INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
-@file:OptIn(org.jetbrains.compose.resources.InternalResourceApi::class, ExperimentalWasmJsInterop::class)
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -8,13 +8,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlin.js.get
+import kotlinx.browser.document
+import kotlinx.browser.localStorage
+import kotlinx.browser.window
 import org.jetbrains.compose.resources.ComposeEnvironment
+import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.LanguageQualifier
 import org.jetbrains.compose.resources.LocalComposeEnvironment
 import org.jetbrains.compose.resources.RegionQualifier
 import org.jetbrains.compose.resources.ResourceEnvironment
 import org.jetbrains.compose.resources.ScriptQualifier
 import org.jetbrains.compose.resources.ThemeQualifier
+import org.w3c.dom.HTMLElement
 
 internal enum class DemoLanguage(val storage: String, val htmlLang: String) {
     English("en", "en"),
@@ -23,7 +29,11 @@ internal enum class DemoLanguage(val storage: String, val htmlLang: String) {
     companion object {
         fun fromBrowser(): DemoLanguage {
             val tag = browserLanguage().lowercase()
-            return if (tag == "zh" || tag.startsWith("zh-")) Chinese else English
+            return if (tag == "zh" || tag.startsWith("zh-")) {
+                Chinese
+            } else {
+                English
+            }
         }
 
         fun fromStorage(value: String): DemoLanguage? = entries.find { it.storage == value }
@@ -114,23 +124,38 @@ internal fun ApplyDocumentChrome(language: DemoLanguage, dark: Boolean, title: S
     }
 }
 
-@JsFun("() => (navigator.languages && navigator.languages[0]) || navigator.language || 'en'")
-private external fun browserLanguage(): String
 
-@JsFun("(key) => { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }")
-private external fun storageGet(key: String): String
+internal fun browserLanguage(): String =
+    window.navigator.languages[0]?.toString()?.takeIf { it.isNotEmpty() }
+        ?: window.navigator.language.ifEmpty { "en" }
 
-@JsFun("(key, value) => { try { localStorage.setItem(key, value); } catch (e) {} }")
-private external fun storageSet(key: String, value: String)
+internal fun storageGet(key: String): String = try {
+    localStorage.getItem(key).orEmpty()
+} catch (_: Throwable) {
+    ""
+}
 
-@JsFun("(lang) => { document.documentElement.lang = lang; }")
-private external fun setHtmlLang(lang: String)
+internal fun storageSet(key: String, value: String) {
+    try {
+        localStorage.setItem(key, value)
+    } catch (_: Throwable) {
+        // Storage can be unavailable for file URLs or blocked by browser policy.
+    }
+}
 
-@JsFun("(scheme) => { document.documentElement.style.colorScheme = scheme; }")
-private external fun setColorScheme(scheme: String)
+internal fun setHtmlLang(lang: String) {
+    document.documentElement?.setAttribute("lang", lang)
+}
 
-@JsFun("(title) => { document.title = title; }")
-private external fun setDocumentTitle(title: String)
+internal fun setColorScheme(scheme: String) {
+    (document.documentElement as? HTMLElement)?.style?.setProperty("color-scheme", scheme)
+}
 
-@JsFun("(color) => { document.documentElement.style.background = color; document.body.style.background = color; }")
-private external fun setPageBackground(color: String)
+internal fun setDocumentTitle(title: String) {
+    document.title = title
+}
+
+internal fun setPageBackground(color: String) {
+    (document.documentElement as? HTMLElement)?.style?.background = color
+    document.body?.style?.background = color
+}

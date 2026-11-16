@@ -238,13 +238,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - name: Build the versioned offline web demo
+      - name: Build the versioned JS and Wasm offline demos
         shell: bash
         run: ./gradlew :demo-web:offlineZip -PVERSION_NAME="${GITHUB_REF_NAME#v}"
       - uses: actions/upload-artifact@v7
         with:
           name: web-demo-release
-          path: demo-web/build/distributions/*.zip
+          path: |
+            demo-web/build/distributions/demo-web-js-*.zip
+            demo-web/build/distributions/demo-web-wasm-*.zip
           if-no-files-found: error
 
   publish:
@@ -275,7 +277,7 @@ jobs:
           pattern: desktop-demo-*
           path: desktop-demo-jars
           merge-multiple: true
-      - name: Download the offline web demo
+      - name: Download the JS and Wasm offline demos
         uses: actions/download-artifact@v8
         with:
           name: web-demo-release

@@ -71,19 +71,19 @@ jobs:
           restore-keys: |
             ghostty-web-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-
             ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-
-      - name: Build the offline web demo
-        run: ./gradlew :demo-web:offlineZip
+      - name: Build both offline demos and Pages
+        run: ./gradlew :demo-web:offlineZip :demo-web:preparePages
       - uses: actions/upload-artifact@v7
         with:
           name: web-demo-offline
-          path: demo-web/build/distributions/*.zip
+          path: |
+            demo-web/build/distributions/demo-web-js-*.zip
+            demo-web/build/distributions/demo-web-wasm-*.zip
           if-no-files-found: error
-      - name: Prepare Pages download
-        run: cp demo-web/build/distributions/*.zip demo-web/build/offline/demo-web-offline.zip
       - uses: actions/upload-pages-artifact@v5
         if: github.ref == 'refs/heads/cmp' && github.event_name != 'pull_request'
         with:
-          path: demo-web/build/offline
+          path: demo-web/build/pages
 
   deploy:
     if: github.ref == 'refs/heads/cmp' && github.event_name != 'pull_request'

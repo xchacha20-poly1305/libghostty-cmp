@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
-
 package io.github.xchacha20_poly1305.libghostty.compose
 
 import androidx.compose.ui.Modifier
@@ -51,8 +49,8 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
     PlatformTextInputModifierNode, FocusEventModifierNode, KeyInputModifierNode, CompositionLocalConsumerModifierNode,
     PointerInputModifierNode {
     private var session: Job? = null
-    private var pasteListener: JsAny? = null
-    private var modifierListener: JsAny? = null
+    private var pasteListener: BrowserListener? = null
+    private var modifierListener: BrowserListener? = null
     private val request = CompositionRequest(controller, retainCommittedText = true)
     private val held = HashSet<GhosttyKey>()
     private var primaryMousePressed = false
@@ -73,8 +71,9 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
 
     override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
         if (pass != PointerEventPass.Final) return
-        if (pointerEvent.type == PointerEventType.Press &&
-            pointerEvent.changes.any { it.type == PointerType.Mouse } && pointerEvent.buttons.isPrimaryPressed
+        if (pointerEvent.type == PointerEventType.Press
+            && pointerEvent.changes.any { it.type == PointerType.Mouse }
+            && pointerEvent.buttons.isPrimaryPressed
         ) {
             primaryMousePressed = true
         } else if (pointerEvent.type == PointerEventType.Release && primaryMousePressed) {
@@ -91,7 +90,9 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
 
     override fun onFocusEvent(focusState: FocusState) {
         if (focusState.isFocused && session == null) {
-            pasteListener = installPasteListener { controller.paste(it) }
+            pasteListener = installPasteListener {
+                controller.paste(it)
+            }
             session = coroutineScope.launch {
                 establishTextInputSession { startInputMethod(request) }
             }
@@ -157,37 +158,3 @@ private class WebInputNode(var controller: TerminalController) : Modifier.Node()
         GhosttyKey.PERIOD, GhosttyKey.SLASH
     )
 }
-
-@JsFun(
-    """(paste) => {
-    const listener = event => { const text = event.clipboardData?.getData('text/plain');
-        if (text != null) { event.preventDefault(); event.stopPropagation(); paste(text); } };
-    document.addEventListener('paste', listener, true); return listener;
-}"""
-)
-private external fun installPasteListener(paste: (String) -> Unit): JsAny
-
-@JsFun("(listener) => document.removeEventListener('paste', listener, true)")
-private external fun removePasteListener(listener: JsAny)
-
-
-@JsFun(
-    """(update) => {
-    const key = event => update(event.ctrlKey, event.metaKey, event.shiftKey);
-    const blur = () => update(false, false, false);
-    document.addEventListener('keydown', key, true);
-    document.addEventListener('keyup', key, true);
-    window.addEventListener('blur', blur);
-    return {key, blur};
-}"""
-)
-private external fun installModifierListener(update: (Boolean, Boolean, Boolean) -> Unit): JsAny
-
-@JsFun(
-    """(listener) => {
-    document.removeEventListener('keydown', listener.key, true);
-    document.removeEventListener('keyup', listener.key, true);
-    window.removeEventListener('blur', listener.blur);
-}"""
-)
-private external fun removeModifierListener(listener: JsAny)

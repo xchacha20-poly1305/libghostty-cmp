@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -17,19 +18,30 @@ kotlin {
         }
     }
     jvm("desktop")
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    js {
+        browser()
+    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     applyDefaultHierarchyTemplate {
         common {
             group("skia") {
                 withJvm()
-                withWasmJs()
+                group("web") {
+                    withJs()
+                    withWasmJs()
+                }
             }
         }
     }
     sourceSets {
+        named("webMain").dependencies {
+            implementation(libs.kotlinx.browser)
+        }
         commonMain.dependencies {
             api(project(":library"))
             api(libs.compose.runtime)

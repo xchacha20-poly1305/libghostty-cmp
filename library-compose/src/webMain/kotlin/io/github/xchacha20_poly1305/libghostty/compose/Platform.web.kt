@@ -9,8 +9,9 @@ import androidx.compose.ui.text.font.FontFamily
 import io.github.xchacha20_poly1305.libghostty.GhosttyClipboard
 import io.github.xchacha20_poly1305.libghostty.GhosttyBrowserClipboard
 
-internal actual fun GlyphPainter(fontFamily: FontFamily, fontSizePx: Float, resolver: FontFamily.Resolver): GlyphPainter =
-    skiaGlyphPainter(fontFamily, fontSizePx, resolver)
+internal actual fun GlyphPainter(fontFamily: FontFamily, fontSizePx: Float, resolver: FontFamily.Resolver): GlyphPainter {
+    return skiaGlyphPainter(fontFamily, fontSizePx, resolver)
+}
 
 internal actual fun imageBitmapOf(width: Int, height: Int, argb: IntArray): ImageBitmap = skiaImageBitmapOf(width, height, argb)
 

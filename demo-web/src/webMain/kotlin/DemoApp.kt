@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,16 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xchacha20_poly1305.libghostty.GhosttyTheme
-import io.github.xchacha20_poly1305.libghostty.compose.GhosttyExtraKeysBar
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyDialogs
+import io.github.xchacha20_poly1305.libghostty.compose.GhosttyExtraKeysBar
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminal
 import io.github.xchacha20_poly1305.libghostty.demo.resources.Res
 import io.github.xchacha20_poly1305.libghostty.demo.resources.app_title
@@ -65,6 +63,7 @@ import io.github.xchacha20_poly1305.libghostty.demo.resources.clear_hint
 import io.github.xchacha20_poly1305.libghostty.demo.resources.document_title
 import io.github.xchacha20_poly1305.libghostty.demo.resources.error_prefix
 import io.github.xchacha20_poly1305.libghostty.demo.resources.footer_keys
+import io.github.xchacha20_poly1305.libghostty.demo.resources.home
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_clear
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_contrast
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_language
@@ -81,9 +80,12 @@ import io.github.xchacha20_poly1305.libghostty.demo.resources.terminal_heading
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_dark
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_light
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_system
+import kotlinx.browser.document
+import kotlinx.browser.window
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.w3c.dom.url.URL
 
 private val AdwaitaBlue = Color(0xFF3584E4)
 private val SourceUrl = "https://github.com/xchacha20-poly1305/libghostty-cmp"
@@ -126,7 +128,13 @@ internal fun DemoRoot(preferences: DemoPreferences, runtime: DemoRuntime?) {
     val dark = preferences.theme.isDark(systemDark)
     val content = @Composable {
         DemoResourceEnvironment(preferences.language, dark) {
-            MaterialTheme(colorScheme = if (dark) demoDarkColors() else demoLightColors()) {
+            MaterialTheme(
+                colorScheme = if (dark) {
+                    demoDarkColors()
+                } else {
+                    demoLightColors()
+                },
+            ) {
                 ApplyDocumentChrome(preferences.language, dark, stringResource(Res.string.document_title))
                 Surface(Modifier.fillMaxSize()) {
                     when {
@@ -148,7 +156,11 @@ internal fun DemoRoot(preferences: DemoPreferences, runtime: DemoRuntime?) {
 
 @Composable
 private fun DemoApp(preferences: DemoPreferences, runtime: DemoRuntime, dark: Boolean) {
-    val ghosttyTheme = if (dark) AdwaitaDark else AdwaitaLight
+    val ghosttyTheme = if (dark) {
+        AdwaitaDark
+    } else {
+        AdwaitaLight
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < 650.dp
         val horizontal = if (maxWidth > 1368.dp) {
@@ -181,7 +193,9 @@ private fun DemoApp(preferences: DemoPreferences, runtime: DemoRuntime, dark: Bo
                     dark = dark,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
-                if (!compact) DemoFooter(compact)
+                if (!compact) {
+                    DemoFooter(compact)
+                }
             }
             if (compact) GhosttyExtraKeysBar(runtime.state)
         }
@@ -212,12 +226,20 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
-                Modifier.weight(1f).clickable { openUrl(SourceUrl) },
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        if (pagesHomeAvailable()) {
+                            goHome()
+                        } else {
+                            openUrl(SourceUrl)
+                        }
+                    },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Box(
-                    Modifier
+                    modifier = Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(AdwaitaBlue),
@@ -231,28 +253,47 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
                         fontFamily = FontFamily.Monospace
                     )
                 }
-                if (!compact) {
-                    Text("Ghostty", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                if (!compact || pagesHomeAvailable()) {
+                    Text(
+                        text = if (pagesHomeAvailable()) {
+                            stringResource(Res.string.home)
+                        } else {
+                            "Ghostty"
+                        },
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    )
                 }
             }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
                     stringResource(Res.string.app_title),
                     fontWeight = FontWeight.Bold,
-                    fontSize = if (compact) 14.sp else 15.sp,
+                    fontSize = if (compact) {
+                        14.sp
+                    } else {
+                        15.sp
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             Row(
-                Modifier.weight(1f),
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LanguageSelector(preferences, compact)
                 ThemeSelector(preferences, compact)
                 if (!compact) {
-                    TextButton(onClick = { openUrl(SourceUrl) }) { Text(stringResource(Res.string.source)) }
+                    TextButton(
+                        onClick = { openUrl(SourceUrl) },
+                    ) {
+                        Text(stringResource(Res.string.source))
+                    }
                 }
             }
         }
@@ -263,7 +304,7 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
 @Composable
 private fun DemoToolbar(runtime: DemoRuntime) {
     Row(
-        Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -345,7 +386,12 @@ private fun DemoTerminalWindow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2EC27E)))
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF2EC27E)),
+                    )
                     Text(
                         "${runtime.columns} × ${runtime.rows}",
                         color = onHeading,
@@ -354,9 +400,12 @@ private fun DemoTerminalWindow(
                 }
             }
             GhosttyTerminal(
-                runtime.session,
-                Modifier.weight(1f).fillMaxWidth().testTag("demo-terminal"),
-                runtime.state,
+                session = runtime.session,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag("demo-terminal"),
+                state = runtime.state,
                 theme = theme,
                 darkColorScheme = dark,
                 fontFamily = runtime.fontFamily,
@@ -371,7 +420,11 @@ private fun DemoTerminalWindow(
 private fun DemoFooter(compact: Boolean) {
     val style = MaterialTheme.typography.bodySmall.copy(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = if (compact) 10.sp else 11.sp,
+        fontSize = if (compact) {
+            10.sp
+        } else {
+            11.sp
+        },
         lineHeight = 18.sp,
     )
     SelectionContainer {
@@ -478,5 +531,14 @@ private fun demoLightColors() = lightColorScheme(
     outlineVariant = Color(0x20000000),
 )
 
-@JsFun("(url) => { window.open(url, '_blank', 'noopener,noreferrer'); }")
-private external fun openUrl(url: String)
+
+internal fun openUrl(url: String) {
+    window.open(url, "_blank", "noopener,noreferrer")
+}
+
+internal fun pagesHomeAvailable(): Boolean =
+    document.documentElement?.getAttribute("data-pages-home") == "true"
+
+internal fun goHome() {
+    window.location.href = URL("../index.html", document.baseURI).href
+}
