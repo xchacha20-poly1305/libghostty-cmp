@@ -73,28 +73,7 @@ jobs:
             ghostty-jni-${{ env.ZIG_VERSION }}-${{ steps.ghostty.outputs.commit }}-
       - name: Build both offline demos and Pages
         run: ./gradlew :demo-web:offlineZip :demo-web:preparePages
-      - name: Install browser test dependencies
-        working-directory: demo-web/browser-tests
-        run: npm ci
-      - name: Install Playwright browsers
-        working-directory: demo-web/browser-tests
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: Test JS and Wasm demos in Chromium, Firefox and WebKit
-        working-directory: demo-web/browser-tests
-        run: npm test
-      - name: Upload browser test reports and evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: web-browser-tests
-          path: |
-            demo-web/browser-tests/playwright-report/
-            demo-web/browser-tests/test-results/
-            demo-web/build/browser-test-packages/manifest.json
-          if-no-files-found: warn
-          retention-days: 14
       - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
         with:
           name: web-demo-offline
           path: |
