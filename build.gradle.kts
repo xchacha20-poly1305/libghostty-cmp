@@ -1,3 +1,4 @@
+import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -42,6 +43,20 @@ subprojects {
                 compileSdk = 37
                 minSdk = 21
                 compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+            }
+        }
+    }
+    plugins.withId("com.vanniktech.maven.publish") {
+        val projectLicense = rootProject.layout.projectDirectory.file("LICENSE")
+        val ghosttyLicense = ghosttyLicense(project)
+        tasks.withType<AbstractArchiveTask>().configureEach {
+            if (this is Jar || name.endsWith("Aar")) {
+                from(projectLicense) {
+                    into("META-INF")
+                }
+                from(ghosttyLicense) {
+                    into("META-INF")
+                }
             }
         }
     }

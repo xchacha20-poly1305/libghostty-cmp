@@ -5,6 +5,7 @@ import org.gradle.api.Task
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
@@ -94,10 +95,56 @@ abstract class GhosttySourceTask @Inject constructor(
     }
 }
 
+/** Copies Ghostty's upstream `LICENSE` into `outputDir` as `LICENSE-ghostty`. */
+abstract class GhosttyLicenseTask @Inject constructor(
+    private val fileSystemOperations: FileSystemOperations,
+) : GhosttyOutputTask() {
+    @get:Input
+    abstract val commit: Property<String>
+
+    @get:Internal
+    abstract val sourceDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val license = File(sourceDir.get().asFile, "LICENSE")
+        if (!license.isFile) {
+            throw GradleException("LICENSE not found under ${sourceDir.get().asFile}")
+        }
+        fileSystemOperations.sync {
+            from(license) {
+                rename { "LICENSE-ghostty" }
+            }
+            into(outputDir)
+        }
+    }
+}
+
 fun ghosttyCommit(project: Project): String = project.providers.gradleProperty("GHOSTTY_COMMIT").get().also {
     if (!it.matches(Regex("[0-9a-f]{40}"))) {
         throw GradleException("GHOSTTY_COMMIT must be a full 40-character Git commit hash")
     }
+}
+
+/**
+ * Registers (once on the root project) and returns the task providing Ghostty's upstream `LICENSE` file as
+ * `LICENSE-ghostty`.
+ */
+fun ghosttyLicense(project: Project): TaskProvider<GhosttyOutputTask> {
+    val root = project.rootProject
+    val name = "ghosttyLicense"
+    if (!root.tasks.names.contains(name)) {
+        val env = GhosttyEnv(root)
+        env.register(
+            name,
+            GhosttyLicenseTask::class.java,
+            env.buildDir.map { it.dir("license") },
+        ) {
+            commit.set(env.commit)
+            sourceDir.set(env.sourceDir)
+        }
+    }
+    return root.tasks.named(name, GhosttyOutputTask::class.java)
 }
 
 internal class GhosttyEnv(private val project: Project) {
