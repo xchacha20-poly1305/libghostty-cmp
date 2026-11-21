@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>All modules</title>
+    <link href="images/logo-icon.svg" rel="icon" type="image/svg">
+        <script>var pathToRoot = "";</script>
+    <script>document.documentElement.classList.replace("no-js", "js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+      if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+          document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+      } else {
+        const savedDarkMode = JSON.parse(storage)
+        if (savedDarkMode === true) {
+          document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+      }
+    </script>
+<script type="text/javascript" src="scripts/sourceset_dependencies.js" async="async"></script>
+<link href="styles/style.css" rel="Stylesheet">
+<link href="styles/main.css" rel="Stylesheet">
+<link href="styles/prism.css" rel="Stylesheet">
+<link href="styles/logo-styles.css" rel="Stylesheet">
+<link href="ui-kit/ui-kit.min.css" rel="Stylesheet">
+<script type="text/javascript" src="scripts/safe-local-storage_blocking.js"></script>
+<script type="text/javascript" src="scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="ui-kit/ui-kit.min.js" defer="defer"></script>
+<link href="styles/sidebar.css" rel="Stylesheet">
+</head>
+<body>
+<div class="root">
+    <header class="navigation theme-dark" id="navigation-wrapper" role="banner">
+            <a class="library-name--link" href="index.html" tabindex="1">
+                    libghostty-cmp
+            </a>
+        <button class="navigation-controls--btn navigation-controls--btn_toc ui-kit_mobile-only" id="toc-toggle"
+                type="button">Toggle table of contents
+        </button>
+        <div class="navigation-controls--break ui-kit_mobile-only"></div>
+        <div class="library-version" id="library-version">
+0.5.2-SNAPSHOT        </div>
+        <div class="navigation-controls">
+            <button class="navigation-controls--btn navigation-controls--btn_theme" id="theme-toggle-button"
+                    type="button">Switch theme
+            </button>
+            <div class="navigation-controls--btn navigation-controls--btn_search" id="searchBar" role="button">Search in
+                API
+            </div>
+        </div>
+    </header>
+    <div id="container">
+        <nav id="leftColumn" class="sidebar" data-item-type="SECTION" data-item-config='{"defaultSize": 280, "minSize": 200, "maxSize": 400}'>
+            <a class="toc--skip-link" href="#main">Skip to content</a>
+            <div class="dropdown theme-dark_mobile" data-role="dropdown" id="toc-dropdown">
+                <ul role="listbox" id="toc-listbox" class="dropdown--list dropdown--list_toc-list"
+                    data-role="dropdown-listbox" aria-label="Table of contents">
+                    <div class="dropdown--header">
+                            <span>
+                                    libghostty-cmp
+                            </span>
+                        <button class="button" data-role="dropdown-toggle" aria-label="Close table of contents">
+                            <i class="ui-kit-icon ui-kit-icon_cross"></i>
+                        </button>
+                    </div>
+                    <li class="sidebar-demos" role="group" aria-labelledby="sidebar-demos-title">
+                        <strong id="sidebar-demos-title">Demos</strong>
+                            <a href="demo/js/">Kotlin/JS demo</a>
+                            <a href="demo/wasm/">Kotlin/Wasm demo</a>
+                    </li>
+                    <div class="sidebar--inner" id="sideMenu"></div>
+                </ul>
+                <div class="dropdown--overlay"></div>
+            </div>
+        </nav>
+        <div id="resizer" class="resizer" data-item-type="BAR"></div>
+        <div id="main" data-item-type="SECTION" role="main">
+<div class="main-content" id="content" pageIds="libghostty-cmp::.ext/allModules///PointingToDeclaration//0">
+  <div class="breadcrumbs"></div>
+  <div class="cover ">
+    <div class="cover ">
+      <h1 class="">libghostty-cmp</h1>
+      <p class="paragraph">Use the Ghostty terminal emulator in an Android, desktop JVM, or browser application. This API reference follows the <code class="lang-kotlin">cmp</code> branch.</p>
+      <p class="paragraph"><strong>The API is unstable and may change in future releases.</strong> Updates may require changes to your application.</p>
+      <ul>
+        <li>
+          <p class="paragraph"><a href="demo/js/">Kotlin/JS demo</a></p>
+        </li>
+        <li>
+          <p class="paragraph"><a href="demo/wasm/">Kotlin/Wasm demo</a></p>
+        </li>
+      </ul>
+      <h2 class="">Quick start</h2>
+      <h3 class="">Install from Maven Central</h3>
+      <p class="paragraph">Add <code class="lang-kotlin">mavenCentral()</code> to your Gradle repositories. These coordinates use the published version <code class="lang-kotlin">0.5.1</code>. In a Kotlin Multiplatform project, add each dependency to a source set whose targets the library supports.</p>
+      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">dependencies {<br>    implementation(&quot;io.github.xchacha20-poly1305:libghostty:0.5.1&quot;)<br>    // Optional Compose Multiplatform UI<br>    implementation(&quot;io.github.xchacha20-poly1305:libghostty-compose:0.5.1&quot;)<br>    // Optional themes, terminfo, and font utilities on Android and desktop JVM<br>    implementation(&quot;io.github.xchacha20-poly1305:libghostty-extras:0.5.1&quot;)<br>}</code></pre>
+<span class="copy-tooltip">
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+<span class="copy-icon"></span></span></div>
+      <h3 class="">Feed output to a terminal session</h3>
+      <p class="paragraph">Call this example from the main thread on Android or desktop JVM. It feeds a line of green text, reads the visible terminal text, and closes the session. For an interactive terminal, connect a <code class="lang-kotlin">GhosttyTerminalSession.Transport</code> to your process or connection. The transport receives keyboard input and resize events. Send the process output back with <code class="lang-kotlin">feedOutput</code>.</p>
+      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession<br><br>fun printTerminalOutput() {<br>    val session = GhosttyTerminalSession()<br>    try {<br>        session.feedOutput(&quot;\u001B[32mHello, terminal!\u001B[0m\r\n&quot;.encodeToByteArray())<br>        println(session.screenText())<br>    } finally {<br>        session.close()<br>    }<br>}</code></pre>
+<span class="copy-tooltip">
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+<span class="copy-icon"></span></span></div>
+      <h3 class="">Render the terminal with Compose</h3>
+      <p class="paragraph">Pass a live session to the terminal composable and give it space in the layout. Keep the session open while the UI uses it, then close it when its owner is disposed.</p>
+      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">import androidx.compose.foundation.layout.fillMaxSize<br>import androidx.compose.runtime.Composable<br>import androidx.compose.ui.Modifier<br>import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession<br>import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminal<br><br>@Composable<br>fun TerminalPane(session: GhosttyTerminalSession) {<br>    GhosttyTerminal(session, Modifier.fillMaxSize())<br>}</code></pre>
+<span class="copy-tooltip">
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+<span class="copy-icon"></span></span></div>
+      <h3 class="">Initialize the browser backend</h3>
+      <p class="paragraph">Both Kotlin/JS and Kotlin/Wasm use the Ghostty WebAssembly engine. Serve the matching <code class="lang-kotlin">ghostty-vt.wasm</code> binary with your application. It is published with the <code class="lang-kotlin">ghostty-vt</code> classifier and <code class="lang-kotlin">wasm</code> extension on <code class="lang-kotlin">libghostty-js</code> and <code class="lang-kotlin">libghostty-wasm-js</code>. Await the loader in a coroutine before creating the first session.</p>
+      <div class="sample-container">
+        <pre><code class="block lang-kotlin" theme="idea">import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession<br>import io.github.xchacha20_poly1305.libghostty.GhosttyWebAssembly<br><br>suspend fun createBrowserTerminal(): GhosttyTerminalSession {<br>    GhosttyWebAssembly.load(&quot;ghostty-vt.wasm&quot;)<br>    return GhosttyTerminalSession()<br>}</code></pre>
+<span class="copy-tooltip">
+          <div class="copy-popup-wrapper popup-to-left"><span class="copy-popup-icon"></span><span>Content copied to clipboard</span></div>
+<span class="copy-icon"></span></span></div>
+    </div>
+    <h2 class="">All modules:</h2>
+    <div class="table"><a data-name="-1039898362%2FMain%2F0" anchor-label="libghostty" id="-1039898362%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row table-row_multimodule">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="library/index.html">libghostty</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1039898362%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="1351214817%2FMain%2F0" anchor-label="libghostty-compose" id="1351214817%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row table-row_multimodule">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="library-compose/index.html">libghostty-compose</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1351214817%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+<a data-name="1995803372%2FMain%2F0" anchor-label="libghostty-extras" id="1995803372%2FMain%2F0" data-filterable-set=""></a>
+      <div class="table-row table-row_multimodule">
+        <div class="main-subrow ">
+          <div class="w-100"><span class="inline-flex">
+              <div><a href="library-extras/index.html">libghostty-extras</a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1995803372%2FMain%2F0"></span>
+                <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+              </span></span></div>
+          <div><span class="brief-comment"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    <div class="footer">
+        <div class="footer--container">
+            <a href="#content" id="go-to-top-link" class="footer--button footer--button_go-to-top"></a>
+            <div class="footer--content">
+                <div>
+                    <span>Generated by </span>
+                    <a class="footer--link footer--link_external" href="https://github.com/Kotlin/dokka">
+                        Dokka
+                    </a>
+                    <div>© 2026 Copyright</div>
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

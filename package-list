@@ -1,0 +1,9 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+
+module:libghostty
+io.github.xchacha20_poly1305.libghostty
+module:libghostty-compose
+io.github.xchacha20_poly1305.libghostty.compose
+module:libghostty-extras
+io.github.xchacha20_poly1305.libghostty.extras

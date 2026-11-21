@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-pages-docs="../../index.html" data-kotlin-target="js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="description" content="Ghostty terminal demo. Compose Multiplatform, Adwaita palette, works offline.">
+<title>Terminal demo · Ghostty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#242424}
+body{height:calc(100dvh - env(safe-area-inset-bottom))}
+</style>
+</head>
+<body>
+<script>
+// Keep the canvas and its extra keys above mobile software keyboards.
+if (window.visualViewport) {
+  const resize = () => {
+    document.body.style.height = `calc(${window.visualViewport.height}px - env(safe-area-inset-bottom))`;
+    // Compose measures its container on window resize, after the visual viewport has changed.
+    window.dispatchEvent(new Event('resize'));
+  };
+  window.visualViewport.addEventListener('resize', resize);
+  resize();
+}
+</script>
+<script src="offline-assets.js"></script>
+<script src="offline-runtime.js"></script>
+<script src="demo-web.js"></script>
+</body>
+</html>
