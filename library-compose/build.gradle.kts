@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
+}
+
+dokka {
+    moduleName.set("libghostty-compose")
+    moduleVersion.set(providers.gradleProperty("VERSION_NAME"))
 }
 
 kotlin {

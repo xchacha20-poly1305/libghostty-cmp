@@ -1,4 +1,6 @@
 import org.gradle.jvm.tasks.Jar
+import org.jetbrains.dokka.gradle.DokkaExtension
+import org.jetbrains.dokka.gradle.engine.plugins.DokkaHtmlPluginParameters
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -9,9 +11,33 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.maven.publish) apply false
+    alias(libs.plugins.dokka)
 }
 
+dependencies {
+    dokka(project(":library"))
+    dokka(project(":library-extras"))
+    dokka(project(":library-compose"))
+}
+
+dokka {
+    moduleName.set("libghostty-cmp")
+    moduleVersion.set(providers.gradleProperty("VERSION_NAME"))
+    dokkaPublications.html {
+        includes.from("docs/quick-start.md")
+    }
+}
+
+val dokkaLayout = layout.projectDirectory.dir("docs/dokka")
 allprojects {
+    plugins.withId("org.jetbrains.dokka") {
+        extensions.configure<DokkaExtension> {
+            pluginsConfiguration.named("html", DokkaHtmlPluginParameters::class.java) {
+                templatesDir.set(dokkaLayout.dir("templates"))
+                customStyleSheets.from(dokkaLayout.file("sidebar.css"))
+            }
+        }
+    }
     plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin> {
         extensions.configure<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec> {
             download.set(false)

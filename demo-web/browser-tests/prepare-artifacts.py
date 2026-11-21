@@ -22,7 +22,7 @@ for target in ('js', 'wasm'):
     with zipfile.ZipFile(archive) as package:
         package.extractall(destination)
     html = (destination / 'index.html').read_text()
-    if f'data-kotlin-target="{target}"' not in html or 'data-pages-home=' in html:
+    if f'data-kotlin-target="{target}"' not in html or 'data-pages-docs=' in html:
         raise RuntimeError(f'Incorrect standalone entrypoint: {archive}')
     first_line = (destination / 'offline-assets.js').read_text().splitlines()[0]
     assets = json.loads(first_line.removeprefix('globalThis.__ghosttyAssets=').removesuffix(';'))

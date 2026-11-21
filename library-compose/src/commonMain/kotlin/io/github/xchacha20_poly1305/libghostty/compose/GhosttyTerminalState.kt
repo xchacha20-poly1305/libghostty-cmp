@@ -46,10 +46,18 @@ public class GhosttyTerminalState {
     /** Matches plain text as a URL, in addition to the hyperlinks the terminal reported. */
     public var urlDetectionEnabled: Boolean by mutableStateOf(true)
 
-    /** Underlines the hovered link while Ctrl or Command is held. Does not change link activation. */
+    /**
+     * Underlines the hovered link while Ctrl or Command is held. Does not change link activation.
+     *
+     * @since 0.5.1
+     */
     public var linkHoverUnderlineEnabled: Boolean by mutableStateOf(false)
 
-    /** Controls when clipboard paste requires confirmation. */
+    /**
+     * Controls when clipboard paste requires confirmation.
+     *
+     * @since 0.5.2
+     */
     public var pasteProtection: GhosttyTerminalSession.PasteProtection by
         mutableStateOf(GhosttyTerminalSession.PasteProtection.STANDARD)
 
@@ -104,7 +112,11 @@ public class GhosttyTerminalState {
         controller?.paste()
     }
 
-    /** Pastes [text] with the same confirmation policy as a clipboard paste. */
+    /**
+     * Pastes [text] with the same confirmation policy as a clipboard paste.
+     *
+     * @since 0.5.2
+     */
     public fun paste(text: String) {
         controller?.paste(text)
     }

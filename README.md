@@ -5,6 +5,8 @@ Android, the desktop JVM (Linux, macOS and Windows on x86_64 and aarch64), and b
 terminal sessions, a Compose
 Multiplatform terminal, a theme catalog, and font handling.
 
+**The API is unstable and may change in future releases.** See the [API reference and quick start](https://xchacha20-poly1305.github.io/libghostty-cmp/).
+
 ```kotlin
 dependencies {
     implementation("io.github.xchacha20-poly1305:libghostty:0.5.0")
@@ -97,9 +99,8 @@ Every push to `cmp` publishes the `-SNAPSHOT` version to
 `libghostty` and `libghostty-compose` publish `js` and `wasmJs` artifacts. The extras module's
 filesystem, terminfo installation and JVM resource APIs remain Android/JVM-only.
 
-[Open the demo selection page](https://xchacha20-poly1305.github.io/libghostty-cmp/) and choose
-[Kotlin/JS](https://xchacha20-poly1305.github.io/libghostty-cmp/js/) or
-[Kotlin/Wasm](https://xchacha20-poly1305.github.io/libghostty-cmp/wasm/).
+Try the [Kotlin/JS demo](https://xchacha20-poly1305.github.io/libghostty-cmp/demo/js/) or
+[Kotlin/Wasm demo](https://xchacha20-poly1305.github.io/libghostty-cmp/demo/wasm/).
 The two offline ZIPs are available from [GitHub Releases](https://github.com/xchacha20-poly1305/libghostty-cmp/releases).
 Unzip the entire directory and open `index.html` directly. No local server, Python or Java
 is needed. The terminal runs without a network connection; CJK and emoji fonts download
@@ -159,27 +160,41 @@ Build from source (Node.js 26 and Python 3 are build tools only):
 ```sh
 ./gradlew :demo-web:jsBrowserDevelopmentRun          # Kotlin/JS development server
 ./gradlew :demo-web:wasmJsBrowserDevelopmentRun      # Kotlin/Wasm development server
-./gradlew :demo-web:offlineZip :demo-web:preparePages # both ZIPs and Pages
+make demo-web                                       # both ZIPs and Pages
 ./gradlew :demo-shared:desktopTest                   # simulated shell tests
 cd demo-web/browser-tests
 npm ci
 npx playwright install --with-deps chromium firefox webkit
-npm test                                            # opens file://; CJK/emoji fonts may be fetched
+npm test                                            # tests file:// ZIPs and the HTTP Pages site
 ```
 
 The ZIPs are written to `demo-web/build/distributions/` as `demo-web-js-<version>.zip` and
 `demo-web-wasm-<version>.zip`. Their unpacked contents are in `demo-web/build/offline/js/`
 and `demo-web/build/offline/wasm/`. Each ZIP opens independently through `file://`.
-GitHub Pages is assembled in `demo-web/build/pages/` and deployed from `cmp`, with a selection
-homepage and `js/` and `wasm/` subpages. Pages contains no ZIPs or download links.
-Browser checks run locally against both targets in Chromium, Firefox and WebKit; reports,
-screenshots and failure traces are saved under `demo-web/browser-tests/`. Each run extracts
-the actual ZIPs into `demo-web/build/browser-test-packages/` and records their SHA-256 hashes.
+
+## Documentation and GitHub Pages
+
+- `make docs` generates the aggregated English API reference in `build/dokka/html/`.
+- `make pages` assembles the documentation and the two online demos in `demo-web/build/pages/`.
+
+To preview the documentation with its sidebar and search, serve the generated files over HTTP
+and open [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+
+```sh
+python3 -m http.server 8000 --bind 127.0.0.1 --directory build/dokka/html
+```
+
+To try the demo links locally, run `make pages` and serve `demo-web/build/pages/`.
+
+The Pages workflow verifies the site and both demos in Chromium, Firefox and WebKit. For `cmp`
+builds it mirrors the tested site to the `gh-pages` branch and deploys the same artifact through
+GitHub Actions. Tagged releases attach the standalone web ZIPs alongside the desktop demos.
+
+Local browser checks save reports, screenshots and failure traces under `demo-web/browser-tests/`.
+Each run extracts the actual ZIPs into `demo-web/build/browser-test-packages/` and records their SHA-256 hashes.
 For packages built with a version override, set `GHOSTTY_DEMO_VERSION` to the same version.
-For local HTTP checks under a repository prefix, serve `demo-web/build/` and set
-`GHOSTTY_PAGES_URL=http://localhost:<port>/pages/index.html` when running `npm test`.
-Actions only build and deploy the demos. Future `v*` releases automatically attach both
-versioned web ZIPs alongside the desktop demos. No new release is needed to update Pages.
+Playwright serves the Pages site at `http://127.0.0.1:4173/pages/` by default. To test an
+already hosted site, set `GHOSTTY_PAGES_URL` to its homepage URL.
 
 ## License
 

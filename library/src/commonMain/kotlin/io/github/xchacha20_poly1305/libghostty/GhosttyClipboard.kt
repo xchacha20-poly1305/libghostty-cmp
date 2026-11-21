@@ -9,11 +9,19 @@ public interface GhosttyClipboard {
 
     public fun getText(): String?
 
-    /** Reads for a user paste gesture. Browser hosts can complete asynchronously on the main thread. */
+    /**
+     * Reads for a user paste gesture. Browser hosts can complete asynchronously on the main thread.
+     *
+     * @since 0.5.0
+     */
     public fun readText(onResult: (String?) -> Unit): Unit = onResult(getText())
 
     public fun setText(text: String)
 
-    /** A terminal program requested a write. Hosts can require consent independently of user copy actions. */
+    /**
+     * A terminal program requested a write. Hosts can require consent independently of user copy actions.
+     *
+     * @since 0.5.0
+     */
     public fun setTextForProgram(text: String): Unit = setText(text)
 }

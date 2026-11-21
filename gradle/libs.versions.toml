@@ -1,6 +1,7 @@
 [versions]
 agp = "9.5.2"
 kotlin = "2.4.21"
+dokka = "2.3.0"
 mavenPublish = "0.37.0"
 ndk = "30.0.16248370"
 coroutines = "1.11.0"
@@ -36,6 +37,7 @@ r8 = { module = "com.android.tools:r8", version.ref = "r8" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

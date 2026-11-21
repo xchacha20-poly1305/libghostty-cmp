@@ -1,5 +1,5 @@
 <resources>
-    <string name="home">首页</string>
+    <string name="documentation">文档</string>
     <string name="document_title">终端演示 · Ghostty</string>
     <string name="app_title">终端演示</string>
     <string name="source">源代码</string>

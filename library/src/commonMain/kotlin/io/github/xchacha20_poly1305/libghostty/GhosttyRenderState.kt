@@ -70,7 +70,11 @@ public class GhosttyRenderState {
 
     public fun background(column: Int, row: Int): Int = background[row * columns + column]
 
-    /** Whether the cell paints a background over images in [GhosttyImageLayer.BELOW_BACKGROUND]. */
+    /**
+     * Whether the cell paints a background over images in [GhosttyImageLayer.BELOW_BACKGROUND].
+     *
+     * @since 0.5.0
+     */
     public fun hasBackground(column: Int, row: Int): Boolean =
         flags(column, row) and GhosttyCellFlags.BG_NONE == 0 ||
                 flags(column, row) and GhosttyCellFlags.INVERSE != 0 ||
@@ -341,6 +345,11 @@ public data class GhosttyKittyPlacement(
     val sourceWidth: Int,
     val sourceHeight: Int,
     val z: Int,
+    /**
+     * The drawing order relative to cell backgrounds and text.
+     *
+     * @since 0.5.0
+     */
     val layer: GhosttyImageLayer = when {
         z < Int.MIN_VALUE / 2 -> GhosttyImageLayer.BELOW_BACKGROUND
         z < 0 -> GhosttyImageLayer.BELOW_TEXT
@@ -348,9 +357,30 @@ public data class GhosttyKittyPlacement(
     },
 )
 
-/** Image drawing order relative to cell backgrounds and text. */
+/**
+ * Image drawing order relative to cell backgrounds and text.
+ *
+ * @since 0.5.0
+ */
 public enum class GhosttyImageLayer {
+    /**
+     * Draw before painting cell backgrounds.
+     *
+     * @since 0.5.0
+     */
     BELOW_BACKGROUND,
+
+    /**
+     * Draw after cell backgrounds and before text.
+     *
+     * @since 0.5.0
+     */
     BELOW_TEXT,
+
+    /**
+     * Draw over text.
+     *
+     * @since 0.5.0
+     */
     ABOVE_TEXT,
 }

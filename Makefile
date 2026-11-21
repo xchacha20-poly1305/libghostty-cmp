@@ -8,6 +8,7 @@ ZIG_TARGET ?=
 .PHONY: help assemble build-libs clean \
 	test test-android shrink-check check \
 	demo-desktop demo-android demo-web test-web test-web-setup npm-lock \
+	docs pages \
 	ghostty-source ghostty-prebuilt gen-kotlin zig-build \
 	publish-local publish-snapshot
 
@@ -59,6 +60,16 @@ test-web: demo-web ## Build web demo and run Playwright browser tests
 
 npm-lock: ## Update Kotlin JS/Wasm npm package-lock.json files
 	$(GRADLEW) $(GRADLE_FLAGS) kotlinUpgradePackageLock kotlinWasmUpgradePackageLock
+
+##@ Documentation
+docs: ## Generate the aggregated Dokka API documentation
+	$(GRADLEW) $(GRADLE_FLAGS) :dokkaGeneratePublicationHtml
+	@printf 'Dokka HTML: %s\n' '$(abspath build/dokka/html/index.html)'
+	@printf '%s\n' 'Preview at http://127.0.0.1:8000/ with:' \
+		'  python3 -m http.server 8000 --bind 127.0.0.1 --directory build/dokka/html'
+
+pages: ## Assemble the GitHub Pages site with documentation and browser demos
+	$(GRADLEW) $(GRADLE_FLAGS) :demo-web:preparePages
 
 ##@ Native & Ghostty
 ghostty-source: ## Fetch and patch the pinned Ghostty source

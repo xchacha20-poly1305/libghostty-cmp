@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
     id("ghostty.assets")
 }
 
@@ -32,6 +33,16 @@ kotlin {
             implementation(libs.androidx.test.runner)
             implementation(libs.androidx.test.ext.junit)
         }
+    }
+}
+
+dokka {
+    moduleName.set("libghostty-extras")
+    moduleVersion.set(providers.gradleProperty("VERSION_NAME"))
+    val desktopClasspath = configurations.named("desktopCompileClasspath")
+    dokkaSourceSets.configureEach {
+        // These shared sources target the JVM on both Android and desktop.
+        if (name == "commonMain") classpath.from(desktopClasspath)
     }
 }
 

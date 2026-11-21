@@ -5,10 +5,23 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
     id("ghostty.native")
 }
 
 val ghosttyNative = the<GhosttyNative>()
+
+dokka {
+    moduleName.set("libghostty")
+    moduleVersion.set(providers.gradleProperty("VERSION_NAME"))
+    dokkaSourceSets.configureEach {
+        // GhosttyKey and GhosttyMods are public API generated from Ghostty's input definitions.
+        if (name == "commonMain") {
+            suppressGeneratedFiles.set(false)
+        }
+    }
+}
+
 // Only the sysroot is used: zig links the JNI library against bionic.
 ghosttyNative.ndkHome.set(androidComponents.sdkComponents.sdkDirectory.map { it.dir("ndk/${libs.versions.ndk.get()}") })
 

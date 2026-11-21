@@ -1,0 +1,91 @@
+.sidebar-demos {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--toc-color, var(--default-font-color));
+}
+
+.sidebar-demos a {
+    justify-self: start;
+    color: inherit;
+}
+
+/* Header platform filter chips */
+#filter-section {
+    gap: 6px;
+}
+
+#filter-section .platform-tag {
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    text-transform: capitalize;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+@media (min-width: 900px) {
+    #filter-section .platform-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+}
+
+#filter-section .platform-tag::before {
+    content: "";
+    box-sizing: border-box;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    background-color: transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#filter-section .platform-tag:not([data-active])::after {
+    content: none;
+}
+
+#filter-section .platform-tag:not([data-active]):hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.78);
+}
+
+#filter-section .platform-tag[data-active] {
+    background-color: rgba(255, 255, 255, 0.16);
+    background-color: color-mix(in srgb, var(--platform-tag-color, #9ca3af) 18%, rgba(255, 255, 255, 0.08));
+    border-color: rgba(255, 255, 255, 0.38);
+    border-color: color-mix(in srgb, var(--platform-tag-color, #9ca3af) 55%, rgba(255, 255, 255, 0.2));
+    color: #ffffff;
+    font-weight: 600;
+}
+
+#filter-section .platform-tag[data-active]::before {
+    border-color: transparent;
+    background-color: var(--platform-tag-color, #9ca3af);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--platform-tag-color, #9ca3af) 65%, transparent);
+}
+
+@media (hover: hover) {
+    #filter-section .platform-tag[data-active]:hover {
+        background-image: none;
+        background-color: rgba(255, 255, 255, 0.22);
+        background-color: color-mix(in srgb, var(--platform-tag-color, #9ca3af) 26%, rgba(255, 255, 255, 0.12));
+        border-color: color-mix(in srgb, var(--platform-tag-color, #9ca3af) 75%, rgba(255, 255, 255, 0.25));
+    }
+}
+
+#filter-section .platform-tag[data-active]:active {
+    background-color: rgba(255, 255, 255, 0.26);
+    color: #ffffff;
+}

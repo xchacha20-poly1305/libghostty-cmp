@@ -1,3 +1,4 @@
+import org.jetbrains.dokka.gradle.tasks.DokkaGeneratePublicationTask
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -97,19 +98,18 @@ tasks.register("offlineZip") {
     dependsOn(offlinePackages.values.map { it.second })
 }
 
+val dokkaHtml = rootProject.tasks.named<DokkaGeneratePublicationTask>("dokkaGeneratePublicationHtml")
 tasks.register<Sync>("preparePages") {
-    dependsOn(offlinePackages.values.map { it.first })
-    from("src/pages")
+    group = "distribution"
+    description = "Assemble the API documentation and browser demos for GitHub Pages."
+    from(dokkaHtml.flatMap { it.outputDirectory })
     offlinePackages.forEach { (name, tasks) ->
         from(tasks.first) {
-            into(name)
-        }
-    }
-    // Navigation belongs to Pages; standalone Release ZIPs have their own root index.html.
-    eachFile {
-        if (path == "js/index.html" || path == "wasm/index.html") {
-            filter { line ->
-                line.replace("<html lang=\"en\"", "<html lang=\"en\" data-pages-home=\"true\"")
+            into("demo/$name")
+            filesMatching("index.html") {
+                filter { line ->
+                    line.replace("<html lang=\"en\"", "<html lang=\"en\" data-pages-docs=\"../../index.html\"")
+                }
             }
         }
     }

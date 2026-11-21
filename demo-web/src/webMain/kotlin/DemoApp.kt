@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,10 +63,10 @@ import io.github.xchacha20_poly1305.libghostty.demo.resources.app_title
 import io.github.xchacha20_poly1305.libghostty.demo.resources.clear
 import io.github.xchacha20_poly1305.libghostty.demo.resources.clear_hint
 import io.github.xchacha20_poly1305.libghostty.demo.resources.document_title
+import io.github.xchacha20_poly1305.libghostty.demo.resources.documentation
 import io.github.xchacha20_poly1305.libghostty.demo.resources.error_prefix
 import io.github.xchacha20_poly1305.libghostty.demo.resources.example_options
 import io.github.xchacha20_poly1305.libghostty.demo.resources.footer_keys
-import io.github.xchacha20_poly1305.libghostty.demo.resources.home
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_clear
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_contrast
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_expand
@@ -93,7 +94,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.w3c.dom.url.URL
 
 private val AdwaitaBlue = Color(0xFF3584E4)
-private val SourceUrl = "https://github.com/xchacha20-poly1305/libghostty-cmp"
+private const val SOURCE_URL = "https://github.com/xchacha20-poly1305/libghostty-cmp"
 
 private val AdwaitaDark = GhosttyTheme(
     0xffffffff.toInt(),
@@ -211,6 +212,7 @@ private fun DemoApp(preferences: DemoPreferences, runtime: DemoRuntime, dark: Bo
 @Composable
 private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
     val colors = MaterialTheme.colorScheme
+    val documentationPath = document.documentElement?.getAttribute("data-pages-docs")
     Column(Modifier.fillMaxWidth().background(colors.surface)) {
         Row(
             Modifier
@@ -233,11 +235,13 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable {
-                        if (pagesHomeAvailable()) {
-                            goHome()
+                    .let {
+                        if (documentationPath != null) {
+                            it.clickable(role = Role.Button) {
+                                window.location.href = URL(documentationPath, document.baseURI).href
+                            }
                         } else {
-                            openUrl(SourceUrl)
+                            it
                         }
                     },
                 verticalAlignment = Alignment.CenterVertically,
@@ -258,10 +262,10 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
                         fontFamily = FontFamily.Monospace
                     )
                 }
-                if (!compact || pagesHomeAvailable()) {
+                if (!compact || documentationPath != null) {
                     Text(
-                        text = if (pagesHomeAvailable()) {
-                            stringResource(Res.string.home)
+                        text = if (documentationPath != null) {
+                            stringResource(Res.string.documentation)
                         } else {
                             "Ghostty"
                         },
@@ -295,7 +299,7 @@ private fun DemoHeader(preferences: DemoPreferences, compact: Boolean) {
                 ThemeSelector(preferences, compact)
                 if (!compact) {
                     TextButton(
-                        onClick = { openUrl(SourceUrl) },
+                        onClick = { openUrl(SOURCE_URL) },
                     ) {
                         Text(stringResource(Res.string.source))
                     }
@@ -574,11 +578,4 @@ private fun demoLightColors() = lightColorScheme(
 
 internal fun openUrl(url: String) {
     window.open(url, "_blank", "noopener,noreferrer")
-}
-
-internal fun pagesHomeAvailable(): Boolean =
-    document.documentElement?.getAttribute("data-pages-home") == "true"
-
-internal fun goHome() {
-    window.location.href = URL("../index.html", document.baseURI).href
 }

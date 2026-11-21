@@ -1,4 +1,4 @@
-name: Web demo
+name: Documentation and web demos
 
 on:
   push:
@@ -6,8 +6,10 @@ on:
     paths:
       - "demo-web/**"
       - "demo-shared/**"
+      - "docs/**"
       - "library/**"
       - "library-compose/**"
+      - "library-extras/**"
       - "native/**"
       - "patches/ghostty/**"
       - "buildSrc/**"
@@ -22,8 +24,10 @@ on:
     paths:
       - "demo-web/**"
       - "demo-shared/**"
+      - "docs/**"
       - "library/**"
       - "library-compose/**"
+      - "library-extras/**"
       - "native/**"
       - "patches/ghostty/**"
       - "buildSrc/**"
@@ -80,14 +84,77 @@ jobs:
             demo-web/build/distributions/demo-web-js-*.zip
             demo-web/build/distributions/demo-web-wasm-*.zip
           if-no-files-found: error
+      - name: Install browser test dependencies
+        working-directory: demo-web/browser-tests
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: demo-web/browser-tests
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify the documentation and both demos
+        working-directory: demo-web/browser-tests
+        env:
+          GHOSTTY_FIREFOX_HEADED: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a npm test -- pages.spec.js --retries=1
+      - name: Upload browser test evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pages-browser-tests
+          path: |
+            demo-web/browser-tests/playwright-report/
+            demo-web/browser-tests/test-results/
+            demo-web/build/browser-test-packages/manifest.json
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-pages-artifact@v5
         if: github.ref == 'refs/heads/cmp' && github.event_name != 'pull_request'
         with:
           path: demo-web/build/pages
 
-  deploy:
+  mirror:
     if: github.ref == 'refs/heads/cmp' && github.event_name != 'pull_request'
     needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/pages-artifact
+      - name: Commit the Pages artifact to gh-pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/pages-site"
+          branch="$RUNNER_TEMP/pages-branch"
+          mkdir -p "$site"
+          tar -xf "$RUNNER_TEMP/pages-artifact/artifact.tar" -C "$site"
+          if git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null; then
+            git fetch --depth=1 origin refs/heads/gh-pages
+            git worktree add --detach "$branch" FETCH_HEAD
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
+            git worktree add --orphan -b gh-pages "$branch"
+          fi
+          rsync -a --delete --exclude='/.git' "$site/" "$branch/"
+          git -C "$branch" add -A
+          if ! git -C "$branch" diff --cached --quiet; then
+            git -C "$branch" -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Publish Pages from $GITHUB_SHA"
+            git -C "$branch" push origin HEAD:refs/heads/gh-pages
+          fi
+          echo "Source $GITHUB_SHA matches gh-pages commit $(git -C "$branch" rev-parse HEAD)"
+
+  deploy:
+    if: github.ref == 'refs/heads/cmp' && github.event_name != 'pull_request'
+    needs: mirror
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -99,3 +166,34 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+      - name: Verify the deployed entrypoints
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from time import sleep
+          from urllib.parse import urljoin
+          from urllib.request import urlopen
+
+          base_url = os.environ["PAGES_URL"].rstrip("/") + "/"
+          entrypoints = {
+              "": b">Quick start</h2>",
+              "demo/js/": b'data-kotlin-target="js"',
+              "demo/wasm/": b'data-kotlin-target="wasm"',
+          }
+          for path, marker in entrypoints.items():
+              url = urljoin(base_url, path)
+              for attempt in range(6):
+                  try:
+                      with urlopen(url, timeout=10) as response:
+                          if marker in response.read():
+                              print(f"Verified {url}")
+                              break
+                  except OSError as error:
+                      print(f"{url}: {error}")
+                  if attempt < 5:
+                      sleep(5)
+              else:
+                  raise SystemExit(f"Expected Pages entrypoint did not appear at {url}")
+          PY

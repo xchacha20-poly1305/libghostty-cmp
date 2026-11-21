@@ -5,6 +5,14 @@ JVM (Linux, macOS, Windows), and browser JavaScript/WebAssembly, published to Ma
 `io.github.xchacha20-poly1305:libghostty[-extras|-compose]`. Kotlin package: `io.github.xchacha20_poly1305.libghostty`.
 All library modules use `explicitApi()`.
 
+# Public API changes
+
+Add an English KDoc `@since x.y.z` to each new public declaration in a published library, including
+overloads, enum entries, and public constructor properties. Use the library version in which the
+declaration first becomes public, with no `v` prefix or `-SNAPSHOT` suffix. Keep that version when
+moving a declaration between source sets or making it available on more platforms. Inherited
+members use the original declaration's documentation. Document generated APIs in their generator.
+
 # Commands
 
 Requires `zig` (version in `ZIG_VERSION` of `.github/workflows/build.yml`; must satisfy `build/ghostty/source/build.zig.zon`'s
@@ -21,6 +29,8 @@ copies the native outputs from there and needs none of zig, tic, the NDK or the 
 - Bridge only: prepare sources with `./gradlew ghosttySource`, then `cd native && zig build -Dtarget=x86_64-linux-gnu` (`ANDROID_NDK_HOME` for Android targets);
   `zig build gen-kotlin` writes the generated Kotlin enums
 - Try it by hand: `./gradlew :demo-desktop:run` (shell through pty4j), `:demo-android:installDebug` (echo session)
+- API documentation: `make docs` runs `:dokkaGeneratePublicationHtml` and prints the HTTP preview command.
+  `make pages` assembles the full site.
 - Publish snapshot: `./gradlew publishToMavenCentral` (release: `publishAndReleaseToMavenCentral -PVERSION_NAME=x.y.z`)
 
 The core bridge tests in `jvmSharedTest` run on both the desktop JVM and Android (`androidDeviceTest`).
@@ -102,11 +112,13 @@ before constructing a session. Both core browser publications attach the binary 
 Webpack adapts Skiko's loader before minification; the packager converts runtime assets into classic
 script data. Keep its loader-contract assertions. Never replace the offline contract with a local server.
 CJK and emoji fonts may be fetched from Google Fonts and jsDelivr when online; the bundled Latin face is local.
-The two offline outputs are also the Pages subpages. `:demo-web:preparePages` assembles
-`build/pages` with a manual-choice homepage, `js/` and `wasm/`. Pages has no downloads or ZIP files.
+`:demo-web:preparePages` assembles `demo-web/build/pages` with the aggregated English Dokka
+documentation at the root and both demo outputs at `demo/js/` and `demo/wasm/`. Pages has no ZIP files.
+The `cmp` workflow mirrors the tested Pages artifact to `gh-pages` and deploys it through GitHub Actions.
 Release ZIPs are `demo-web-js-<version>.zip` and `demo-web-wasm-<version>.zip`.
 The web demo chrome is Compose Multiplatform (language: browser locale, Chinese or English;
-appearance: system / light / dark). Browser tests run locally and in `.github/workflows/web.yml` in demo-web/browser-tests; run npm ci,
-playwright install, then npm test after running `:demo-web:offlineZip :demo-web:preparePages`. The Playwright matrix covers both JS and Wasm targets; preserve reports, screenshots and failure traces.
-Check keyboards, IME, clear-button
-focus, completion, Unicode/emoji, paste and resizing in Chromium, Firefox and WebKit.
+appearance: system / light / dark). `.github/workflows/web.yml` gates publication on the
+Pages Playwright tests for JS and Wasm in Chromium, Firefox and WebKit. Run `make demo-web`,
+then `npm ci`, `npx playwright install` and `npm test` from `demo-web/browser-tests` for the
+full suite, including the standalone ZIP tests for keyboard input, IME, clear-button focus,
+completion, Unicode/emoji, paste and resizing. Preserve reports, screenshots and failure traces.

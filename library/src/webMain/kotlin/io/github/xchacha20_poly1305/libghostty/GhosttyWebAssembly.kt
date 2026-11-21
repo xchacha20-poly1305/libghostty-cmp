@@ -8,11 +8,24 @@ import org.khronos.webgl.toByteArray
 import org.w3c.fetch.Response
 import kotlin.js.Promise
 
-/** Loads the Ghostty Wasm core before creating a session. Browser event-loop only. */
+/**
+ * Loads the Ghostty Wasm core before creating a session. Browser event-loop only.
+ *
+ * @since 0.5.0
+ */
 public object GhosttyWebAssembly {
-    /** Load the binary shipped with this library; hosts may override the asset URL. */
+    /**
+     * Load the binary shipped with this library. Hosts may override the asset URL.
+     *
+     * @since 0.5.0
+     */
     public suspend fun load(url: String = "ghostty-vt.wasm") { loadGhosttyWasm(url) }
-    /** Initialize from cached or embedded bytes without networking. */
+
+    /**
+     * Initialize from cached or embedded bytes without networking.
+     *
+     * @since 0.5.0
+     */
     public suspend fun initialize(bytes: ByteArray) { initializeGhosttyWasm(bytes) }
 }
 

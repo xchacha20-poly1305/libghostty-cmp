@@ -57,33 +57,84 @@ public class GhosttyTerminalSession(
         public fun close()
     }
 
+    /**
+     * Controls when [paste] requires confirmation.
+     *
+     * @since 0.5.2
+     */
     public enum class PasteProtection {
-        /** Like the Ghostty GUI by default, trusts bracketed paste unless the text contains its end marker. */
+        /**
+         * Like the Ghostty GUI by default, trusts bracketed paste unless the text contains its end marker.
+         *
+         * @since 0.5.2
+         */
         STANDARD,
 
-        /** Requires confirmation for line breaks and the bracketed paste end marker in every terminal mode. */
+        /**
+         * Requires confirmation for line breaks and the bracketed paste end marker in every terminal mode.
+         *
+         * @since 0.5.2
+         */
         STRICT,
 
-        /** Skips confirmation. The normal paste encoder still processes the text. */
+        /**
+         * Skips confirmation. The normal paste encoder still processes the text.
+         *
+         * @since 0.5.2
+         */
         DISABLED,
     }
 
+    /**
+     * The result of a [paste] request.
+     *
+     * @since 0.5.2
+     */
     public sealed interface PasteResult {
+        /**
+         * The paste was sent to the transport.
+         *
+         * @since 0.5.2
+         */
         public data object Sent : PasteResult
+
+        /**
+         * The session sent no paste input.
+         *
+         * @since 0.5.2
+         */
         public data object Ignored : PasteResult
 
-        /** Pending confirmation for this exact [text]. Resolve on the main thread. */
+        /**
+         * Pending confirmation for this exact [text]. Resolve on the main thread.
+         *
+         * @since 0.5.2
+         */
         public class NeedsConfirmation internal constructor(
+            /**
+             * The original text to preview before confirmation.
+             *
+             * @since 0.5.2
+             */
             public val text: String,
             private var send: (() -> Boolean)?,
         ) : PasteResult {
-            /** Attempts to send once to the original session and transport, using its current terminal mode. */
+            /**
+             * Attempts to send once to the original session and transport, using its current terminal mode.
+             *
+             * @since 0.5.2
+             */
             public fun confirm(): Boolean {
                 val send = send ?: return false
                 this.send = null
                 return send()
             }
 
+            /**
+             * Dismisses the pending paste.
+             *
+             * @since 0.5.2
+             */
             public fun cancel() {
                 send = null
             }
@@ -343,6 +394,8 @@ public class GhosttyTerminalSession(
     /**
      * Pastes [text] using this terminal's current modes, and scrolls to the bottom on paste.
      * If [protection] requires confirmation, returns [PasteResult.NeedsConfirmation] without writing input.
+     *
+     * @since 0.5.2
      */
     public fun paste(text: String, protection: PasteProtection = PasteProtection.STANDARD): PasteResult {
         val target = transport ?: return PasteResult.Ignored

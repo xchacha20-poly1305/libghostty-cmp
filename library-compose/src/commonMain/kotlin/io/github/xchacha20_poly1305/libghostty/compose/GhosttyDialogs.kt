@@ -38,6 +38,8 @@ public fun GhosttyDialogs(state: GhosttyTerminalState) {
  * Shows the terminal prompts with a custom unsafe paste dialog. [pasteConfirmation] receives the original
  * clipboard text and callbacks to confirm or dismiss the current request. Call the dismissal callback for
  * every cancellation, including back, Escape and outside clicks.
+ *
+ * @since 0.5.2
  */
 @Composable
 public fun GhosttyDialogs(
