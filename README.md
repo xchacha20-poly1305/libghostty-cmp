@@ -33,6 +33,23 @@ GhosttyExtraKeysBar(state)          // keys a software keyboard lacks, with stic
 GhosttyDialogs(state)
 ```
 
+Paste protection follows the current terminal mode. By default, line breaks require confirmation
+outside bracketed paste, and the bracketed paste end marker always requires confirmation.
+Set `state.pasteProtection` to `GhosttyTerminalSession.PasteProtection.STRICT` to confirm line
+breaks in either mode, or to `DISABLED` to skip confirmation.
+
+To supply your own paste confirmation dialog, pass a composable to `GhosttyDialogs`:
+
+```kotlin
+GhosttyDialogs(state) { text, confirm, dismiss ->
+    MyPasteDialog(text = text, onConfirm = confirm, onDismissRequest = dismiss)
+}
+```
+
+Without Compose, call `session.paste(text)`. If it returns `PasteResult.NeedsConfirmation`,
+show its `text` and call `confirm()` or `cancel()` on that result. Confirmation encodes the original
+text using the terminal mode in effect when the user confirms.
+
 Set `state.linkHoverUnderlineEnabled = true` to underline the link under the mouse while Ctrl or Command is held
 (default: `false`). This applies to OSC 8 hyperlinks and detected URLs; `urlDetectionEnabled` controls plain-text
 URL detection independently. Link clicks keep their existing behavior.

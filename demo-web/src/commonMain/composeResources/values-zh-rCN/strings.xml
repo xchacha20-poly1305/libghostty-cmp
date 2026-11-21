@@ -5,6 +5,8 @@
     <string name="source">源代码</string>
     <string name="run_example">运行示例</string>
     <string name="run_example_hint">文字、emoji、颜色与控制字符</string>
+    <string name="example_options">示例选项</string>
+    <string name="simulate_paste_protection">模拟粘贴保护</string>
     <string name="paste">粘贴</string>
     <string name="paste_hint">粘贴剪贴板</string>
     <string name="clear">清屏</string>

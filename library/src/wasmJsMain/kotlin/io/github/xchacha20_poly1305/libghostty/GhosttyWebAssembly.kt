@@ -21,7 +21,7 @@ internal actual fun callWasm(op: Int, handle: Int, a: Int, b: Int, c: Int, d: In
 @JsFun("""async (bytes) => {
     if (!globalThis.__libghosttyWasmLoading) {
         globalThis.__libghosttyWasmLoading = WebAssembly.instantiate(bytes, {}).then(({instance}) => {
-            if (instance.exports.ghostty_abi_version() !== 1) throw new Error('Ghostty Wasm ABI mismatch');
+            if (instance.exports.ghostty_abi_version() !== 2) throw new Error('Ghostty Wasm ABI mismatch');
             globalThis.__libghosttyWasm = instance.exports;
         }).catch(error => { delete globalThis.__libghosttyWasmLoading; throw error; });
     }

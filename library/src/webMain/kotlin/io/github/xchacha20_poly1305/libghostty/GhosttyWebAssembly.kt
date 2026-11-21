@@ -2,11 +2,11 @@
 
 package io.github.xchacha20_poly1305.libghostty
 
-import kotlinx.browser.window
-import org.w3c.fetch.RequestInit
 import kotlinx.coroutines.await
 import org.khronos.webgl.Int8Array
 import org.khronos.webgl.toByteArray
+import org.w3c.fetch.Response
+import kotlin.js.Promise
 
 /** Loads the Ghostty Wasm core before creating a session. Browser event-loop only. */
 public object GhosttyWebAssembly {
@@ -36,8 +36,11 @@ internal data class WasmResult(val value: Int, val bytes: ByteArray) {
     }
 }
 
+// The pinned Kotlin/JS Window.fetch binding requires RequestInit, whose defaults become null fields.
+private external fun fetch(url: String): Promise<Response>
+
 private suspend fun loadGhosttyWasm(url: String) {
-    val response = window.fetch(url, RequestInit()).await()
+    val response = fetch(url).await()
     check(response.ok) { "Cannot load Ghostty: ${response.status}" }
     initializeGhosttyWasm(Int8Array(response.arrayBuffer().await()).toByteArray())
 }
@@ -83,6 +86,7 @@ private enum class WasmOperation(val code: Int) {
     ENCODE_PASTE(32),
     TRANSCRIPT(33),
     BACKGROUND(34),
+    IS_PASTE_SAFE_WITH_MODE(35),
 }
 
 private object GhosttyWasmBackend : GhosttyBackend {
@@ -287,6 +291,10 @@ private object GhosttyWasmBackend : GhosttyBackend {
 
     override fun nativeIsPasteSafe(data: ByteArray): Boolean {
         return call(WasmOperation.IS_PASTE_SAFE, data = data).value != 0
+    }
+
+    override fun nativeIsPasteSafeWithMode(handle: Long, data: ByteArray): Boolean {
+        return call(WasmOperation.IS_PASTE_SAFE_WITH_MODE, handle, data = data).value == 1
     }
 
     override fun nativeEncodePaste(handle: Long, data: ByteArray): ByteArray? {

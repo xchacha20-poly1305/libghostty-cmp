@@ -57,6 +57,39 @@ public class GhosttyTerminalSession(
         public fun close()
     }
 
+    public enum class PasteProtection {
+        /** Like the Ghostty GUI by default, trusts bracketed paste unless the text contains its end marker. */
+        STANDARD,
+
+        /** Requires confirmation for line breaks and the bracketed paste end marker in every terminal mode. */
+        STRICT,
+
+        /** Skips confirmation. The normal paste encoder still processes the text. */
+        DISABLED,
+    }
+
+    public sealed interface PasteResult {
+        public data object Sent : PasteResult
+        public data object Ignored : PasteResult
+
+        /** Pending confirmation for this exact [text]. Resolve on the main thread. */
+        public class NeedsConfirmation internal constructor(
+            public val text: String,
+            private var send: (() -> Boolean)?,
+        ) : PasteResult {
+            /** Attempts to send once to the original session and transport, using its current terminal mode. */
+            public fun confirm(): Boolean {
+                val send = send ?: return false
+                this.send = null
+                return send()
+            }
+
+            public fun cancel() {
+                send = null
+            }
+        }
+    }
+
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val terminalAccess = SessionLock()
@@ -307,15 +340,64 @@ public class GhosttyTerminalSession(
         sendRawInput(sanitizeInput(data))
     }
 
-    public fun sendRawInput(data: ByteArray) {
-        val currentTransport = transport ?: return
-        try {
-            currentTransport.sendInput(data)
-        } catch (e: Exception) {
-            logError(TAG, "transport send input failed", e)
-            if (!isFinished) finish(-1)
+    /**
+     * Pastes [text] using this terminal's current modes, and scrolls to the bottom on paste.
+     * If [protection] requires confirmation, returns [PasteResult.NeedsConfirmation] without writing input.
+     */
+    public fun paste(text: String, protection: PasteProtection = PasteProtection.STANDARD): PasteResult {
+        val target = transport ?: return PasteResult.Ignored
+        if (text.isEmpty() || isFinished) {
+            return PasteResult.Ignored
+        }
+
+        val data = text.encodeToByteArray()
+        var needsConfirmation = false
+        val encoded = withHandle { handle ->
+            needsConfirmation = when (protection) {
+                PasteProtection.STANDARD -> !GhosttyVt.nativeIsPasteSafeWithMode(handle, data)
+                PasteProtection.STRICT -> !GhosttyVt.nativeIsPasteSafe(data)
+                PasteProtection.DISABLED -> false
+            }
+            if (needsConfirmation) {
+                return@withHandle null
+            }
+            GhosttyVt.nativeEncodePaste(handle, data)?.takeIf { it.isNotEmpty() }?.apply {
+                terminal.scrollToBottom()
+            }
+        }
+        if (needsConfirmation) {
+            return PasteResult.NeedsConfirmation(text) {
+                transport === target && paste(text, PasteProtection.DISABLED) == PasteResult.Sent
+            }
+        }
+        if (encoded == null || isFinished || transport !== target) {
+            return PasteResult.Ignored
+        }
+        val sent = writeInput(target, encoded)
+        host?.onTerminalChanged()
+        return if (sent) {
+            PasteResult.Sent
+        } else {
+            PasteResult.Ignored
         }
     }
+
+    public fun sendRawInput(data: ByteArray) {
+        val currentTransport = transport ?: return
+        writeInput(currentTransport, data)
+    }
+
+    private fun writeInput(currentTransport: Transport, data: ByteArray): Boolean =
+        try {
+            currentTransport.sendInput(data)
+            true
+        } catch (e: Exception) {
+            logError(TAG, "transport send input failed", e)
+            if (!isFinished) {
+                finish(-1)
+            }
+            false
+        }
 
     public fun screenText(): String? = withHandle { GhosttyVt.nativeViewportText(it) }
         ?.decodeToString()

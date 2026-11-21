@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Terminal demo</string>
     <string name="run_example">Run example</string>
+    <string name="example_options">Example options</string>
+    <string name="simulate_paste_protection">Simulate paste protection</string>
     <string name="paste">Paste</string>
     <string name="clear">Clear</string>
     <string name="theme_system">System</string>

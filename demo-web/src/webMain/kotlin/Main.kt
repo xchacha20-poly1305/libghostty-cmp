@@ -17,7 +17,6 @@ import io.github.xchacha20_poly1305.libghostty.GhosttyWebAssembly
 import io.github.xchacha20_poly1305.libghostty.compose.GhosttyTerminalState
 import io.github.xchacha20_poly1305.libghostty.demo.shared.DemoTerminal
 import kotlinx.browser.document
-import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.await
@@ -26,7 +25,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.khronos.webgl.Int8Array
 import org.khronos.webgl.toByteArray
-import org.w3c.fetch.RequestInit
+import org.w3c.fetch.Response
+import kotlin.js.Promise
 
 internal class DemoRuntime(
     val terminal: DemoTerminal?,
@@ -190,14 +190,17 @@ private suspend fun googleFontUrls(family: String): List<String> {
     return fontSrc.findAll(css).map { it.groupValues[1] }.distinct().toList()
 }
 
+// The pinned Kotlin/JS Window.fetch binding requires RequestInit, whose defaults become null fields.
+private external fun fetch(url: String): Promise<Response>
+
 internal suspend fun fetchBytes(url: String): ByteArray {
-    val response = window.fetch(url, RequestInit()).await()
+    val response = fetch(url).await()
     check(response.ok) { "Missing asset: $url (HTTP ${response.status})" }
     return Int8Array(response.arrayBuffer().await()).toByteArray()
 }
 
 internal suspend fun fetchText(url: String): String {
-    val response = window.fetch(url, RequestInit()).await()
+    val response = fetch(url).await()
     check(response.ok) { "HTTP ${response.status} $url" }
     return response.text().await().toString()
 }

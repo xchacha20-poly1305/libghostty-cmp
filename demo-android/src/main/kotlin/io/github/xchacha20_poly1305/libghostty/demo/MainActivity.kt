@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -35,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.xchacha20_poly1305.libghostty.demo.shared.DemoTerminal
@@ -156,10 +160,10 @@ private fun DemoApp(onThemeChanged: (Boolean) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilledTonalButton(onClick = {
+                    RunExampleButton(state) {
                         terminal.runCommand("showcase")
                         state.showKeyboard()
-                    }) { Text(stringResource(R.string.run_example)) }
+                    }
                     TextButton(onClick = { state.paste(); state.showKeyboard() }) {
                         Text(stringResource(R.string.paste))
                     }
@@ -199,5 +203,40 @@ private fun DemoApp(onThemeChanged: (Boolean) -> Unit) {
             }
         }
         GhosttyDialogs(state)
+    }
+}
+
+@Composable
+private fun RunExampleButton(state: GhosttyTerminalState, onRunExample: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        SplitButtonLayout(
+            leadingButton = {
+                SplitButtonDefaults.TonalLeadingButton(onClick = onRunExample) {
+                    Text(stringResource(R.string.run_example))
+                }
+            },
+            trailingButton = {
+                SplitButtonDefaults.TonalTrailingButton(
+                    checked = expanded,
+                    onCheckedChange = { expanded = it },
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_expand),
+                        contentDescription = stringResource(R.string.example_options),
+                        modifier = Modifier.size(SplitButtonDefaults.TrailingIconSize),
+                    )
+                }
+            },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.simulate_paste_protection)) },
+                onClick = {
+                    expanded = false
+                    state.paste(DemoTerminal.PASTE_PROTECTION_EXAMPLE)
+                },
+            )
+        }
     }
 }

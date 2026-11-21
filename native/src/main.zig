@@ -568,6 +568,12 @@ const natives = struct {
         return boolean(vt.input.isSafePaste(bytes));
     }
 
+    pub fn nativeIsPasteSafeWithMode(env: *jni.Env, _: jni.Object, handle: i64, data: jni.ByteArray) jni.Boolean {
+        const bytes = env.byteArrayAlloc(alloc, data) catch return 0;
+        defer alloc.free(bytes);
+        return boolean(vt.input.isSafePasteWith(bytes, .fromTerminal(&session(handle).terminal)));
+    }
+
     pub fn nativeEncodePaste(env: *jni.Env, _: jni.Object, handle: i64, data: jni.ByteArray) jni.ByteArray {
         const s = session(handle);
         const text = env.byteArrayAlloc(alloc, data) catch return null;

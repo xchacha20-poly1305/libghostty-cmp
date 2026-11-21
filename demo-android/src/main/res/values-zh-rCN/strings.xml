@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">终端演示</string>
     <string name="run_example">运行示例</string>
+    <string name="example_options">示例选项</string>
+    <string name="simulate_paste_protection">模拟粘贴保护</string>
     <string name="paste">粘贴</string>
     <string name="clear">清屏</string>
     <string name="theme_system">跟随系统</string>

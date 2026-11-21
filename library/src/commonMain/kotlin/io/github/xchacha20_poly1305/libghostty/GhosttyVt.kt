@@ -111,6 +111,8 @@ internal interface GhosttyBackend {
 
     fun nativeIsPasteSafe(data: ByteArray): Boolean
 
+    fun nativeIsPasteSafeWithMode(handle: Long, data: ByteArray): Boolean
+
     fun nativeEncodePaste(handle: Long, data: ByteArray): ByteArray?
 }
 

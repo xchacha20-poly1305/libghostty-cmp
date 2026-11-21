@@ -94,7 +94,10 @@ public class GhosttyTerminal internal constructor() {
         mods,
     )?.takeIf { it.isNotEmpty() }
 
-    /** Encodes pasted text, bracketing it when the program enabled bracketed paste. */
+    /**
+     * Encodes pasted text using the current terminal modes. Use [GhosttyTerminalSession.paste]
+     * to apply paste protection and send the result to the session's transport.
+     */
     public fun encodePaste(text: String): ByteArray? =
         GhosttyVt.nativeEncodePaste(handle, text.encodeToByteArray())?.takeIf { it.isNotEmpty() }
 
@@ -116,8 +119,8 @@ public class GhosttyTerminal internal constructor() {
 
     public companion object {
         /**
-         * Whether pasting [text] cannot run commands by itself: it has no line break and cannot end bracketed
-         * paste early.
+         * Whether [text] passes Ghostty's conservative paste check: it contains neither a line break
+         * nor the bracketed paste end marker. This check is independent of terminal mode.
          */
         public fun isPasteSafe(text: String): Boolean = GhosttyVt.nativeIsPasteSafe(text.encodeToByteArray())
     }

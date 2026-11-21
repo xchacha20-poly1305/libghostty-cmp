@@ -141,6 +141,10 @@ internal class TerminalController(
 
     fun attach(newSession: GhosttyTerminalSession?) {
         if (newSession === session) return
+        (state.dialogRequest as? GhosttyTerminalState.DialogRequest.UnsafePaste)?.let {
+            it.confirmation.cancel()
+            state.dialogRequest = null
+        }
         if (selectionActive) clearSelection()
         session?.detach(this)
         kittyImages.clear()
@@ -331,12 +335,20 @@ internal class TerminalController(
             onFinishedSessionKey()
             return
         }
+        prepareForInput()
+        if (typed) {
+            session.sendTypedInput(bytes)
+        } else {
+            session.sendRawInput(bytes)
+        }
+    }
+
+    private fun prepareForInput() {
         if (selectionActive) clearSelection()
         if (!render.scrollbar.isAtBottom || !followsBottom) {
             scrollToBottom()
         }
         holdBlinkSolid()
-        if (typed) session.sendTypedInput(bytes) else session.sendRawInput(bytes)
     }
 
     fun sendText(text: String) {
@@ -468,17 +480,19 @@ internal class TerminalController(
     }
 
     fun paste(text: String) {
-        if (text.isEmpty() || session == null) return
-        if (GhosttyTerminal.isPasteSafe(text)) {
-            sendPaste(text)
-        } else {
-            state.dialogRequest = GhosttyTerminalState.DialogRequest.UnsafePaste { sendPaste(text) }
+        val target = session ?: return
+        if (text.isEmpty()) return
+        if (target.isFinished) {
+            onFinishedSessionKey()
+            return
         }
-    }
-
-    private fun sendPaste(text: String) {
-        val bytes = session?.withTerminal { it.encodePaste(text) } ?: return
-        send(bytes)
+        when (val result = target.paste(text, state.pasteProtection)) {
+            GhosttyTerminalSession.PasteResult.Sent -> prepareForInput()
+            GhosttyTerminalSession.PasteResult.Ignored -> Unit
+            is GhosttyTerminalSession.PasteResult.NeedsConfirmation -> {
+                state.dialogRequest = GhosttyTerminalState.DialogRequest.UnsafePaste(result, ::prepareForInput)
+            }
+        }
     }
 
     fun copySelection() {

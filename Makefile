@@ -48,6 +48,9 @@ demo-android: ## Install the Android debug demo on a connected device/emulator
 demo-web: ## Build standalone web offline ZIPs and Pages output
 	$(GRADLEW) $(GRADLE_FLAGS) :demo-web:offlineZip :demo-web:preparePages
 
+demo-web-dev: ## Preview demo web
+	$(GRADLEW) $(GRADLE_FLAGS) :demo-web:wasmJsBrowserDevelopmentRun
+
 test-web-setup: ## Install Playwright and browser dependencies for web tests
 	cd demo-web/browser-tests && npm ci && npx playwright install
 

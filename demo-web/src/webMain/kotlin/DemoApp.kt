@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,10 +63,12 @@ import io.github.xchacha20_poly1305.libghostty.demo.resources.clear
 import io.github.xchacha20_poly1305.libghostty.demo.resources.clear_hint
 import io.github.xchacha20_poly1305.libghostty.demo.resources.document_title
 import io.github.xchacha20_poly1305.libghostty.demo.resources.error_prefix
+import io.github.xchacha20_poly1305.libghostty.demo.resources.example_options
 import io.github.xchacha20_poly1305.libghostty.demo.resources.footer_keys
 import io.github.xchacha20_poly1305.libghostty.demo.resources.home
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_clear
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_contrast
+import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_expand
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_language
 import io.github.xchacha20_poly1305.libghostty.demo.resources.ic_paste
 import io.github.xchacha20_poly1305.libghostty.demo.resources.language_chinese
@@ -75,11 +78,13 @@ import io.github.xchacha20_poly1305.libghostty.demo.resources.paste
 import io.github.xchacha20_poly1305.libghostty.demo.resources.paste_hint
 import io.github.xchacha20_poly1305.libghostty.demo.resources.run_example
 import io.github.xchacha20_poly1305.libghostty.demo.resources.run_example_hint
+import io.github.xchacha20_poly1305.libghostty.demo.resources.simulate_paste_protection
 import io.github.xchacha20_poly1305.libghostty.demo.resources.source
 import io.github.xchacha20_poly1305.libghostty.demo.resources.terminal_heading
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_dark
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_light
 import io.github.xchacha20_poly1305.libghostty.demo.resources.theme_system
+import io.github.xchacha20_poly1305.libghostty.demo.shared.DemoTerminal
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.jetbrains.compose.resources.DrawableResource
@@ -308,11 +313,7 @@ private fun DemoToolbar(runtime: DemoRuntime) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Hinted(stringResource(Res.string.run_example_hint)) {
-            Button(onClick = { runtime.runCommand("showcase") }) {
-                Text(stringResource(Res.string.run_example))
-            }
-        }
+        RunExampleButton(runtime)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             ToolbarIconButton(
                 icon = Res.drawable.ic_paste,
@@ -325,6 +326,45 @@ private fun DemoToolbar(runtime: DemoRuntime) {
                 label = stringResource(Res.string.clear),
                 hint = stringResource(Res.string.clear_hint),
                 onClick = { runtime.runCommand("clear") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RunExampleButton(runtime: DemoRuntime) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        SplitButtonLayout(
+            leadingButton = {
+                Hinted(stringResource(Res.string.run_example_hint)) {
+                    SplitButtonDefaults.LeadingButton(
+                        onClick = { runtime.runCommand("showcase") },
+                    ) {
+                        Text(stringResource(Res.string.run_example))
+                    }
+                }
+            },
+            trailingButton = {
+                SplitButtonDefaults.TrailingButton(
+                    checked = expanded,
+                    onCheckedChange = { expanded = it },
+                ) {
+                    Icon(
+                        painterResource(Res.drawable.ic_expand),
+                        contentDescription = stringResource(Res.string.example_options),
+                        modifier = Modifier.size(SplitButtonDefaults.TrailingIconSize),
+                    )
+                }
+            },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.simulate_paste_protection)) },
+                onClick = {
+                    expanded = false
+                    runtime.state.paste(DemoTerminal.PASTE_PROTECTION_EXAMPLE)
+                },
             )
         }
     }

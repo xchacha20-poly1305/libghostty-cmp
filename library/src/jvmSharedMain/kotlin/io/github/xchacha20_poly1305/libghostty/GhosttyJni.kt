@@ -120,6 +120,8 @@ internal object GhosttyJni : GhosttyBackend {
 
     external override fun nativeIsPasteSafe(data: ByteArray): Boolean
 
+    external override fun nativeIsPasteSafeWithMode(handle: Long, data: ByteArray): Boolean
+
     external override fun nativeEncodePaste(handle: Long, data: ByteArray): ByteArray?
 }
 

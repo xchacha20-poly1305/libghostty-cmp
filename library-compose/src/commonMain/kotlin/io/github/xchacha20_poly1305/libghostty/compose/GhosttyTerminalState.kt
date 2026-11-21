@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.sp
 import io.github.xchacha20_poly1305.libghostty.GhosttyCellSize
 import io.github.xchacha20_poly1305.libghostty.GhosttyKey
 import io.github.xchacha20_poly1305.libghostty.GhosttyScrollbar
+import io.github.xchacha20_poly1305.libghostty.GhosttyTerminalSession
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -47,6 +48,10 @@ public class GhosttyTerminalState {
 
     /** Underlines the hovered link while Ctrl or Command is held. Does not change link activation. */
     public var linkHoverUnderlineEnabled: Boolean by mutableStateOf(false)
+
+    /** Controls when clipboard paste requires confirmation. */
+    public var pasteProtection: GhosttyTerminalSession.PasteProtection by
+        mutableStateOf(GhosttyTerminalSession.PasteProtection.STANDARD)
 
     public var urlPattern: Regex by mutableStateOf(Regex("""https?://\S+"""))
 
@@ -99,6 +104,11 @@ public class GhosttyTerminalState {
         controller?.paste()
     }
 
+    /** Pastes [text] with the same confirmation policy as a clipboard paste. */
+    public fun paste(text: String) {
+        controller?.paste(text)
+    }
+
     /** Scrolls to the bottom of the scrollback, past the bottom content padding, and follows new output again. */
     public fun scrollToBottom() {
         controller?.scrollToBottom()
@@ -125,7 +135,10 @@ public class GhosttyTerminalState {
     }
 
     internal sealed interface DialogRequest {
-        class UnsafePaste(val paste: () -> Unit) : DialogRequest
+        class UnsafePaste(
+            val confirmation: GhosttyTerminalSession.PasteResult.NeedsConfirmation,
+            val onConfirmed: () -> Unit,
+        ) : DialogRequest
 
         class ClipboardRead(val respond: (approved: Boolean) -> Unit) : DialogRequest
 

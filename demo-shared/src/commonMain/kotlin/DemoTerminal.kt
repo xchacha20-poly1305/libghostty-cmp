@@ -23,4 +23,9 @@ public class DemoTerminal(onResize: (columns: Int, rows: Int) -> Unit = { _, _ -
     public fun runCommand(command: String) { shell.example(command) }
 
     public fun close() { session.close() }
+
+    public companion object {
+        // The end marker requires confirmation even while the demo shell uses bracketed paste.
+        public const val PASTE_PROTECTION_EXAMPLE: String = "echo 'Paste protection example: \u001b[201~'"
+    }
 }

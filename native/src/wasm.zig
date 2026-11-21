@@ -12,7 +12,7 @@ pub const std_options: std.Options = .{ .logFn = discardLog };
 fn discardLog(comptime _: std.log.Level, comptime _: @EnumLiteral(), comptime _: []const u8, _: anytype) void {}
 
 export fn ghostty_abi_version() u32 {
-    return 1;
+    return 2;
 }
 export fn ghostty_alloc(len: usize) usize {
     return @intFromPtr((alloc.alloc(u8, len) catch return 0).ptr);
@@ -47,7 +47,7 @@ fn formatText(s: *Session, selection: ?vt.Selection) i32 {
     return bytes(out.written());
 }
 
-// Mirrored by GhosttyWebAssembly.kt. Numeric values are private to ABI version 1.
+// Mirrored by GhosttyWebAssembly.kt. Numeric values are private to the Wasm ABI.
 const Operation = enum(i32) {
     create = 0,
     free = 1,
@@ -83,6 +83,7 @@ const Operation = enum(i32) {
     encode_paste = 32,
     transcript = 33,
     background = 34,
+    is_paste_safe_with_mode = 35,
 };
 
 /// Operation numbers are mirrored in GhosttyWasmBackend. Scalar returns use i32; arrays use result bytes.
@@ -243,6 +244,7 @@ export fn ghostty_call(op: i32, handle: usize, a: i32, b: i32, c: i32, d: i32, e
         },
         .transcript => return formatText(s, null),
         .background => return s.effectiveBackground(),
+        .is_paste_safe_with_mode => return @intFromBool(vt.input.isSafePasteWith(data, .fromTerminal(t))),
         else => return -1,
     }
     return 0;

@@ -11,11 +11,11 @@ async function command(page, text) {
   await page.keyboard.press('Enter');
 }
 
-async function focusTerminal(page) {
+async function focusTerminal(page, timeout) {
   const canvas = page.locator('canvas');
   const box = await canvas.boundingBox();
   await canvas.click({position: {x: 48, y: Math.round((box?.height || 900) * 0.55)}});
-  await expect(page.locator('textarea')).toBeFocused();
+  await expect(page.locator('textarea')).toBeFocused({timeout});
 }
 
 // Compose draws chrome on the Skia canvas and exposes actions through its a11y nodes.
@@ -76,6 +76,22 @@ test('showcase, emoji shaping, command history and control bytes', async ({page}
   await expect(screen(page)).toHaveAttribute('aria-label', /ABC45\nguest:~ \$ echo -e/);
 });
 
+test('Run example menu opens the real paste protection dialog', async ({page}, testInfo) => {
+  const menu = chromeButton(page, /^Example options$/);
+  const action = page.getByText('Simulate paste protection', {exact: true});
+  await expect(menu).toBeVisible();
+  await expect(action).toBeHidden();
+  const menuBounds = await menu.boundingBox();
+  await page.mouse.click(menuBounds.x + menuBounds.width / 2, menuBounds.y + menuBounds.height / 2);
+  await expect(action).toBeVisible();
+  await page.screenshot({path: testInfo.outputPath('example-menu.png')});
+  const actionBounds = await action.boundingBox();
+  await page.mouse.click(actionBounds.x + actionBounds.width / 2, actionBounds.y + actionBounds.height / 2);
+  await expect(page.getByText('Paste this text?', {exact: true})).toBeVisible();
+  await expect(page.getByText(/echo 'Paste protection example: ␛\[201~'/)).toBeVisible();
+  await page.screenshot({path: testInfo.outputPath('example-paste-protection.png')});
+});
+
 test('composition commits once and resize preserves terminal content', async ({page}) => {
   await page.keyboard.type('echo ');
   const editor = page.locator('textarea');
@@ -98,17 +114,80 @@ test('composition commits once and resize preserves terminal content', async ({p
   await expect(screen(page)).toHaveAttribute('aria-label', /\nresized\n/);
 });
 
-test('paste events send text through terminal paste encoding', async ({page}) => {
-  await page.evaluate(() => {
+async function pasteText(page, text) {
+  await page.evaluate(text => {
     const clipboardData = new DataTransfer();
-    clipboardData.setData('text/plain', 'echo pasted');
+    clipboardData.setData('text/plain', text);
     const event = new ClipboardEvent('paste', {clipboardData, bubbles: true, cancelable: true, composed: true});
     // Firefox discards the constructor's data on synthetic clipboard events.
     Object.defineProperty(event, 'clipboardData', {value: clipboardData});
     document.dispatchEvent(event);
-  });
+  }, text);
+}
+
+test('paste events send text through terminal paste encoding', async ({page}) => {
+  await pasteText(page, 'echo pasted');
   await page.keyboard.press('Enter');
   await expect(screen(page)).toHaveAttribute('aria-label', /\npasted\n/);
+});
+
+test('paste confirmation follows bracketed mode and sends only approved text', async ({page}, testInfo) => {
+  const cancelButton = chromeButton(page, /^Cancel$/);
+  // The modal replaces the page's accessibility tree. Read the demo's live terminal through
+  // Ghostty's viewport operation so assertions also work while the dialog is open.
+  await page.evaluate(() => {
+    const core = globalThis.__libghosttyWasm;
+    let terminal;
+    globalThis.__libghosttyWasm = {
+      ...core,
+      ghostty_call(op, handle, ...args) {
+        if (op === 2) terminal = handle; // write
+        return core.ghostty_call(op, handle, ...args);
+      },
+    };
+    globalThis.readPasteTestViewport = () => {
+      if (!terminal) return '';
+      core.ghostty_call(30, terminal, 0, 0, 0, 0, 0, 0, 0, 0); // viewport_text
+      return new TextDecoder().decode(new Uint8Array(
+        core.memory.buffer, core.ghostty_result_ptr(), core.ghostty_result_len(),
+      )).trimEnd();
+    };
+  });
+  const viewport = () => page.evaluate(() => globalThis.readPasteTestViewport());
+  async function clickDialogButton(name) {
+    const button = chromeButton(page, name);
+    await expect(button).toBeVisible();
+    // Compose positions the accessibility node over the corresponding button on the dialog canvas.
+    const box = await button.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  }
+
+  await pasteText(page, 'echo bracketed\npaste');
+  await expect(screen(page)).toHaveAttribute('aria-label', /echo bracketed paste$/);
+  await expect(cancelButton).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await expect(screen(page)).toHaveAttribute('aria-label', /\nbracketed paste\n/);
+
+  const beforeCancel = await viewport();
+  await pasteText(page, 'echo cancelled\x1b[201~\n');
+  await expect(cancelButton).toBeVisible();
+  await expect(page.getByText(/echo cancelled␛\[201~/)).toBeVisible();
+  expect(await viewport()).toBe(beforeCancel);
+  await clickDialogButton(/^Cancel$/);
+  // A closing Compose dialog can still intercept the first pointer event during its exit animation.
+  await expect(() => focusTerminal(page, 500)).toPass({timeout: 5000});
+  expect(await viewport()).toBe(beforeCancel);
+
+  await command(page, 'echo -e "\\e[?2004l"');
+  await expect.poll(viewport).toMatch(/2004l"\n\nguest:~ \$$/);
+  const beforeApproval = await viewport();
+  await pasteText(page, 'echo approved one\necho approved two\r');
+  await expect(cancelButton).toBeVisible();
+  expect(await viewport()).toBe(beforeApproval);
+  await page.screenshot({path: testInfo.outputPath('paste-confirmation.png')});
+  await clickDialogButton(/^Paste$/);
+  await expect.poll(viewport).toMatch(/\napproved one\n.*\napproved two\n/);
+  await page.screenshot({path: testInfo.outputPath('paste-approved.png')});
 });
 
 test('OSC 52 clipboard writes require confirmation', async ({page}) => {
